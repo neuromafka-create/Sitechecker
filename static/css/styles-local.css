@@ -1,0 +1,36 @@
+body { background: #f5f7fa; font-size: .92rem; }
+.header {display: flex; flex-flow: row nowrap; justify-content: flex-start; align-items: center; background: #fff; border-radius: 8px; border: 1px solid #eee;}
+.header-img {width: 100px; height: 100px; margin: 0 15px;}
+.header-img img {object-fit: contain; width: 100%;}
+.card { border: none; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+.card-header { background: #fff; font-weight: 600; border-bottom: 1px solid #eee; }
+
+/* Прогресс и результаты скрыты по умолчанию */
+#progress-block { display: none; }
+#results-block  { display: none; }
+
+/* Цвета строк по риску */
+.risk-high   { background: #FFD7D7 !important; }
+.risk-medium { background: #FFF3CD !important; }
+.risk-low{ background: #D4EDDA !important; }
+
+/* Таблица */
+.table th   { background: #f0f2f5; white-space: nowrap; }
+.table td   { vertical-align: top; }
+.badge-sm   { font-size: .72rem; }
+
+/* Прогресс */
+#current-url { font-family: monospace; font-size: .85rem; color: #555; }
+
+/* Сводные карточки */
+.stat-card  { text-align: center; }
+.stat-card .display-6  { font-weight: 700; }
+
+/* Блок Playwright */
+.pw-box { background: #f0f4ff; border: 1px solid #d0d8f0; border-radius: 8px; }
+
+/* Кнопки скачивания — скрыты до завершения */
+#download-btns { display: none; }
+
+/* details/summary для нарушений */
+details > summary { cursor: pointer; }

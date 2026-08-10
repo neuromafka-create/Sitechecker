@@ -1,0 +1,190 @@
+# ПРИМЕРЫ ПРАВИЛЬНОЙ РЕАЛИЗАЦИИ (готовые шаблоны для разработчиков)
+
+## 1. Чекбокс согласия на обработку ПД
+
+### Минимальный вариант (в форме)
+```html
+<div class="consent-block">
+  <input type="checkbox" id="pd-consent" name="pd_consent" required>
+  <label for="pd-consent">
+    Я даю согласие на обработку моих персональных данных
+    в соответствии с <a href="/policy/" target="_blank">Политикой обработки
+    персональных данных</a>
+  </label>
+</div>
+```
+
+### Расширенный вариант (содержит все реквизиты по ст.9 152-ФЗ)
+```html
+<div class="consent-block">
+  <input type="checkbox" id="pd-consent" name="pd_consent" required>
+  <label for="pd-consent">
+    Нажимая «Отправить», я даю согласие ООО «Название» (ИНН: XXXXXXXXXX,
+    адрес: г. Москва, ул. ...) на обработку указанных мной персональных данных
+    (имя, телефон, email) в целях обработки обращения. Согласие действует до его
+    отзыва. Отозвать согласие можно по адресу <a href="mailto:pd@company.ru">pd@company.ru</a>.
+    Подробнее: <a href="/policy/" target="_blank">Политика обработки ПД</a>.
+  </label>
+</div>
+```
+
+**Критерий приёмки**: форма не отправляется без отметки чекбокса (атрибут required).
+
+
+## 2. Cookie-баннер (соответствует требованиям РКН 2024-2025)
+
+```html
+<!-- В <body> перед другими скриптами -->
+<div id="cookie-banner" style="display:none;position:fixed;bottom:0;
+     left:0;right:0;background:#fff;border-top:2px solid #e0e0e0;
+     padding:16px 24px;z-index:9999;box-shadow:0 -2px 8px rgba(0,0,0,.1)">
+  <p style="margin:0 0 12px">
+    Мы используем cookie для улучшения работы сайта.
+    <a href="/cookie-policy/" target="_blank">Подробнее</a>
+  </p>
+  <button id="cookie-accept" style="background:#1565C0;color:#fff;
+          border:none;padding:8px 20px;border-radius:4px;cursor:pointer;margin-right:8px">
+    Принять все
+  </button>
+  <button id="cookie-decline" style="background:transparent;border:1px solid #ccc;
+          padding:8px 20px;border-radius:4px;cursor:pointer">
+    Только необходимые
+  </button>
+</div>
+
+<script>
+(function() {
+  // Показываем баннер только если согласие ещё не дано
+  if (!localStorage.getItem('cookie_consent')) {
+    document.getElementById('cookie-banner').style.display = 'block';
+    // Блокируем загрузку аналитики до согласия
+    window.__analyticsAllowed = false;
+  }
+
+  document.getElementById('cookie-accept').addEventListener('click', function() {
+    localStorage.setItem('cookie_consent', 'all');
+    document.getElementById('cookie-banner').style.display = 'none';
+    window.__analyticsAllowed = true;
+    loadAnalytics(); // загружаем аналитику только после согласия
+  });
+
+  document.getElementById('cookie-decline').addEventListener('click', function() {
+    localStorage.setItem('cookie_consent', 'essential');
+    document.getElementById('cookie-banner').style.display = 'none';
+    // аналитика НЕ загружается
+  });
+})();
+
+function loadAnalytics() {
+  // Яндекс.Метрика — загружается ТОЛЬКО после согласия
+  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+  var z=e.createElement(t),s=e.getElementsByTagName(t)[0];
+  z.async=true;z.src=r;s.parentNode.insertBefore(z,s);
+  })(window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
+  ym(XXXXXXXX,'init',{clickmap:true,trackLinks:true});
+}
+</script>
+```
+
+**Критерий приёмки**: открыть сайт в режиме инкогнито → баннер виден →
+сетевые запросы к mc.yandex.ru отсутствуют до клика «Принять все».
+
+
+## 3. Замена Google Fonts на локальный хостинг
+
+**ВАЖНО ДЛЯ AI-РЕКОМЕНДАЦИЙ:** Системы аналитики делятся на две группы:
+- **Российские** (данные хранятся в РФ, НЕ являются трансграничной передачей): Яндекс.Метрика, LiveInternet, Roistat
+- **Иностранные** (трансграничная передача): Google Analytics, Meta Pixel, Hotjar
+
+Только записи из словаря `foreign_resources` (Google Fonts, reCAPTCHA, YouTube embed и т.д.)
+и иностранные системы аналитики (Google Analytics, Meta Pixel, Hotjar) являются нарушением
+трансграничной передачи. Яндекс.Метрика — российский сервис, данные хранятся в РФ.
+
+### Шаг 1 — Скачать шрифты
+Используйте сервис https://gwfh.mranftl.com/fonts — выберите шрифт, скачайте архив.
+
+### Шаг 2 — Разместить в проекте
+```
+/fonts/
+  roboto-v30-latin-regular.woff2
+  roboto-v30-latin-regular.woff
+  roboto-v30-latin-700.woff2
+```
+
+### Шаг 3 — Подключить через CSS
+```css
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/roboto-v30-latin-regular.woff2') format('woff2'),
+       url('/fonts/roboto-v30-latin-regular.woff') format('woff');
+}
+```
+
+### Шаг 4 — Удалить ссылку на Google
+Убрать из HTML: `<link href="https://fonts.googleapis.com/..." rel="stylesheet">`
+
+**Критерий приёмки**: в DevTools → Network не должно быть запросов к
+fonts.googleapis.com и fonts.gstatic.com.
+
+
+## 4. Обязательные разделы Политики обработки ПД
+
+Минимальная структура документа по ст.14 152-ФЗ:
+
+```
+1. Общие положения
+   - Наименование оператора, ИНН, адрес, контакты
+   - Что является персональными данными на этом сайте
+
+2. Цели обработки персональных данных
+   - Обработка обращений пользователей
+   - Отправка уведомлений (если есть)
+   - Аналитика сайта (если есть)
+
+3. Правовые основания обработки
+   - Согласие субъекта (ст.6 ч.1 п.1 152-ФЗ)
+   - Договор с субъектом (если применимо)
+
+4. Категории обрабатываемых данных
+   - Список конкретных полей: имя, телефон, email и т.д.
+
+5. Сроки хранения данных
+   - Например: «до отзыва согласия или 3 лет с момента сбора»
+
+6. Передача данных третьим лицам
+   - Кому и на каком основании (почтовые сервисы, CRM и т.д.)
+
+7. Трансграничная передача (если есть)
+   - Перечень иностранных сервисов, страна получателя
+
+8. Права субъектов персональных данных
+   - Право на доступ, исправление, удаление, отзыв согласия
+   - Контакт для обращений (email/адрес)
+
+9. Меры по защите данных
+   - Общее описание технических мер защиты
+
+10. Порядок отзыва согласия
+    - Способ отзыва (email, форма)
+    - Последствия отзыва
+
+11. Актуальность документа
+    - Дата последнего обновления
+    - Оговорка о праве изменения политики
+```
+
+## 5. reCAPTCHA — замена на российский аналог
+
+Google reCAPTCHA передаёт данные на серверы Google (США) — нарушение при трансграничной передаче.
+
+**Альтернативы без передачи данных за рубеж:**
+- **Яндекс SmartCaptcha** — российский аналог, GDPR-совместимый
+  ```html
+  <script src="https://captcha-api.yandex.ru/captcha.js" defer></script>
+  <div class="smart-captcha" data-sitekey="ВАШ_КЛЮЧ"></div>
+  ```
+- **hCaptcha** с EU-серверами — возможно использование при наличии соглашения
+- **Honeypot-метод** — скрытое поле без внешних запросов (для несложных форм)

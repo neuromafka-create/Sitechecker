@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель управления — 152-ФЗ Проверка</title>
+  <link rel="stylesheet" href="/static/css/fonts.css">
+  <link rel="stylesheet" href="/static/css/styles-amd.css">
+  <style>
+    /* ── Admin-specific overrides ─────────────────────────────── */
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: var(--sp-xl);
+      min-height: calc(100vh - 130px);
+    }
+    @media (max-width: 768px) {
+      .admin-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-sm);
+    }
+    .sidebar-section {
+      font-size: .62rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .12em;
+      color: var(--c-muted);
+      padding: 0 var(--sp-md);
+      margin-bottom: var(--sp-xs);
+      margin-top: var(--sp-md);
+    }
+    .sidebar-section:first-child { margin-top: 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px var(--sp-md);
+      border: 1px solid transparent;
+      border-radius: var(--r-sm);
+      font-size: .8rem; font-weight: 600;
+      color: var(--c-muted);
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none;
+    }
+    .nav-item:hover { color: var(--c-text); border-color: var(--c-border); }
+    .nav-item.active {
+      color: var(--c-cyan);
+      border-color: rgba(0,194,222,.3);
+      background: var(--c-cyan-soft);
+    }
+    .nav-item .nav-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--c-cyan);
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .nav-item.active .nav-dot { opacity: 1; }
+
+    /* Content area */
+    .content-area {
+      min-width: 0;
+    }
+
+    /* Panel */
+    .panel {
+      display: none;
+    }
+    .panel.active { display: block; }
+
+    /* Theme cards grid */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--sp-md);
+      margin-bottom: var(--sp-xl);
+    }
+    .theme-card {
+      border: 2px solid var(--c-border);
+      border-radius: var(--r-md);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+      position: relative;
+    }
+    .theme-card:hover { border-color: rgba(0,194,222,.4); }
+    .theme-card.selected {
+      border-color: var(--c-cyan);
+      box-shadow: 0 0 0 1px var(--c-cyan);
+    }
+    .theme-card-selected-badge {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--c-cyan); color: #000;
+      font-size: .6rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em;
+      padding: 3px 8px;
+      border-radius: var(--r-sm);
+      display: none;
+    }
+    .theme-card.selected .theme-card-selected-badge { display: block; }
+
+    .theme-preview {
+      height: 140px;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Mini UI previews per theme */
+    .preview-amd {
+      background: #121212;
+      display: flex; flex-direction: column;
+    }
+    .preview-amd .p-nav {
+      height: 24px; background: #121212;
+      border-bottom: 1px solid #374151;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    }
+    .preview-amd .p-dot { width: 18px; height: 18px; border: 1px solid #00c2de; }
+    .preview-amd .p-logo { width: 60px; height: 6px; background: #fff; border-radius: 2px; }
+    .preview-amd .p-body { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .preview-amd .p-hero {
+      background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%);
+      border: 1px solid #374151; border-radius: 4px;
+      flex: 1; padding: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .preview-amd .p-title { width: 80px; height: 5px; background: #fff; border-radius: 2px; }
+    .preview-amd .p-sub { width: 100px; height: 3px; background: #374151; border-radius: 2px; }
+    .preview-amd .p-btn { width: 50px; height: 14px; border: 1px solid #00c2de; border-radius: 2px; margin-top: 4px; }
+    .preview-amd .p-bar { height: 2px; background: #00c2de; position: absolute; bottom: 0; left: 0; right: 0; }
+
+    .preview-light {
+      background: #F5F5F0;
+      display: flex; flex-direction: column;
+    }
+    .preview-light .p-nav {
+      height: 24px; background: #F5F5F0;
+      border-bottom: 1px solid #D1D5DB;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    }
+    .preview-light .p-dot { width: 18px; height: 18px; border: 1px solid #0099B2; }
+    .preview-light .p-logo { width: 60px; height: 6px; background: #111827; border-radius: 2px; }
+    .preview-light .p-body { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .preview-light .p-hero {
+      background: #FAFAF7;
+      border: 1px solid #D1D5DB; border-radius: 4px;
+      flex: 1; padding: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .preview-light .p-title { width: 80px; height: 5px; background: #111827; border-radius: 2px; }
+    .preview-light .p-sub { width: 100px; height: 3px; background: #D1D5DB; border-radius: 2px; }
+    .preview-light .p-btn { width: 50px; height: 14px; border: 1px solid #0099B2; border-radius: 2px; margin-top: 4px; }
+    .preview-light .p-bar { height: 2px; background: #0099B2; position: absolute; bottom: 0; left: 0; right: 0; }
+
+    .preview-minimal {
+      background: #0a0a0a;
+      display: flex; flex-direction: column;
+    }
+    .preview-minimal .p-nav {
+      height: 24px; background: #0a0a0a;
+      border-bottom: 1px solid #222;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    }
+    .preview-minimal .p-dot { width: 18px; height: 18px; border: 1px solid #555; }
+    .preview-minimal .p-logo { width: 60px; height: 6px; background: #eee; border-radius: 2px; }
+    .preview-minimal .p-body { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .preview-minimal .p-hero {
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a; border-radius: 4px;
+      flex: 1; padding: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .preview-minimal .p-title { width: 80px; height: 5px; background: #eee; border-radius: 2px; }
+    .preview-minimal .p-sub { width: 100px; height: 3px; background: #222; border-radius: 2px; }
+    .preview-minimal .p-btn { width: 50px; height: 14px; border: 1px solid #555; border-radius: 2px; margin-top: 4px; }
+    .preview-minimal .p-bar { height: 1px; background: #eee; position: absolute; bottom: 0; left: 0; right: 0; }
+
+    .preview-green {
+      background: #0d1117;
+      display: flex; flex-direction: column;
+    }
+    .preview-green .p-nav {
+      height: 24px; background: #0d1117;
+      border-bottom: 1px solid #1a2a1a;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    }
+    .preview-green .p-dot { width: 18px; height: 18px; border: 1px solid #4ade80; }
+    .preview-green .p-logo { width: 60px; height: 6px; background: #fff; border-radius: 2px; }
+    .preview-green .p-body { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .preview-green .p-hero {
+      background: #111;
+      border: 1px solid #1a2a1a; border-radius: 4px;
+      flex: 1; padding: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .preview-green .p-title { width: 80px; height: 5px; background: #fff; border-radius: 2px; }
+    .preview-green .p-sub { width: 100px; height: 3px; background: #1a2a1a; border-radius: 2px; }
+    .preview-green .p-btn { width: 50px; height: 14px; border: 1px solid #4ade80; border-radius: 2px; margin-top: 4px; }
+    .preview-green .p-bar { height: 2px; background: #4ade80; position: absolute; bottom: 0; left: 0; right: 0; }
+
+    .preview-intel {
+      background: #121212;
+      display: flex; flex-direction: column;
+    }
+    .preview-intel .p-nav {
+      height: 24px; background: rgba(10,10,10,.92);
+      border-bottom: 1px solid #374151;
+      display: flex; align-items: center; padding: 0 10px; gap: 6px;
+    }
+    .preview-intel .p-dot { width: 18px; height: 18px; background: #0953de; border-radius: 5px; display:flex; align-items:center; justify-content:center; }
+    .preview-intel .p-logo { width: 60px; height: 6px; background: #fff; border-radius: 10px; }
+    .preview-intel .p-body { flex: 1; padding: 10px; display: flex; flex-direction: column; align-items:center; gap: 6px; }
+    .preview-intel .p-hero {
+      background: transparent;
+      flex: 1; padding: 8px;
+      display: flex; flex-direction: column; align-items:center; gap: 4px;
+    }
+    .preview-intel .p-pill { width: 60px; height: 10px; background: rgba(9,83,222,.2); border: 1px solid rgba(9,83,222,.3); border-radius: 99px; }
+    .preview-intel .p-title { width: 80px; height: 5px; background: #fff; border-radius: 10px; }
+    .preview-intel .p-sub { width: 100px; height: 3px; background: #374151; border-radius: 10px; }
+    .preview-intel .p-btn { width: 60px; height: 16px; background: #0953de; border-radius: 99px; margin-top: 4px; box-shadow: 0 0 8px rgba(9,83,222,.4); }
+
+    .theme-card-info {
+      padding: var(--sp-md);
+      background: var(--c-bg-card);
+      border-top: 1px solid var(--c-border);
+    }
+    .theme-name {
+      font-family: var(--f-display);
+      font-size: .92rem; font-weight: 500;
+      margin-bottom: 3px;
+    }
+    .theme-desc { font-size: .72rem; color: var(--c-muted); }
+
+    /* CSS Editor */
+    .editor-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-md);
+    }
+    .code-editor {
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: var(--sp-md);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: .8rem;
+      color: var(--c-text);
+      min-height: 400px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.7;
+      tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+    }
+    .code-editor:focus {
+      border-color: var(--c-cyan);
+      box-shadow: 0 0 0 1px var(--c-cyan);
+    }
+
+    /* Logo editor */
+    .logo-editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-md);
+      margin-bottom: var(--sp-md);
+    }
+    @media (max-width: 600px) {
+      .logo-editor-grid { grid-template-columns: 1fr; }
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field-label {
+      font-size: .65rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .1em;
+      color: var(--c-muted);
+    }
+    .field-input {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 10px var(--sp-md);
+      font-family: var(--f-body);
+      font-size: .85rem;
+      color: var(--c-text);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field-input:focus {
+      border-color: var(--c-cyan);
+      box-shadow: 0 0 0 1px var(--c-cyan);
+    }
+    .field-select {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 10px var(--sp-md);
+      font-family: var(--f-body);
+      font-size: .85rem;
+      color: var(--c-text);
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s;
+      -webkit-appearance: none;
+    }
+    .field-select:focus { border-color: var(--c-cyan); }
+    .field-select option { background: var(--c-bg); }
+
+    /* Logo preview */
+    .logo-preview {
+      display: flex; align-items: center; gap: 12px;
+      padding: var(--sp-lg) var(--sp-xl);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      background: var(--c-bg-card);
+      margin-bottom: var(--sp-md);
+    }
+    .logo-preview-icon {
+      width: 40px; height: 40px;
+      border: 1px solid var(--c-cyan);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-preview-text { font-family: var(--f-display); font-size: 1.05rem; font-weight: 500; }
+    .logo-preview-sub { font-size: .65rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Logo upload zone */
+    .logo-upload-zone {
+      border: 2px dashed var(--c-border);
+      border-radius: var(--r-md);
+      padding: var(--sp-lg) var(--sp-xl);
+      display: flex; align-items: center; gap: var(--sp-lg);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: var(--sp-md);
+      position: relative;
+    }
+    .logo-upload-zone:hover,
+    .logo-upload-zone.drag-over {
+      border-color: var(--c-cyan);
+      background: var(--c-cyan-soft);
+    }
+    .logo-upload-zone input[type=file] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .logo-upload-thumb {
+      width: 56px; height: 56px;
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex-shrink: 0;
+      background: rgba(255,255,255,.03);
+    }
+    .logo-upload-thumb img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    .logo-upload-info { flex: 1; }
+    .logo-upload-title {
+      font-size: .82rem; font-weight: 600; margin-bottom: 3px;
+    }
+    .logo-upload-hint {
+      font-size: .7rem; color: var(--c-muted);
+    }
+    .logo-upload-badge {
+      font-size: .62rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .08em; padding: 3px 8px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--c-border);
+      color: var(--c-muted);
+      white-space: nowrap;
+    }
+    .logo-upload-badge.has-logo {
+      border-color: rgba(0,194,222,.3);
+      color: var(--c-cyan);
+      background: var(--c-cyan-soft);
+    }
+    .logo-remove-btn {
+      background: none; border: 1px solid rgba(239,68,68,.3);
+      border-radius: var(--r-sm);
+      color: var(--c-red); font-size: .7rem; font-weight: 600;
+      padding: 4px 10px; cursor: pointer;
+      transition: background .15s;
+      white-space: nowrap; flex-shrink: 0;
+      display: none;
+    }
+    .logo-remove-btn:hover { background: var(--c-red-soft); }
+    .logo-remove-btn.visible { display: block; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 32px; right: 32px;
+      background: var(--c-bg-card);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      padding: var(--sp-md) var(--sp-lg);
+      font-size: .82rem;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      z-index: 9999;
+      transform: translateY(calc(100% + 48px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s ease;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .toast.success { border-left: 3px solid var(--c-green); }
+    .toast.error   { border-left: 3px solid var(--c-red); }
+
+    /* Settings rows */
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--sp-md) 0;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info { flex: 1; }
+    .setting-title { font-size: .85rem; font-weight: 600; margin-bottom: 2px; }
+    .setting-desc { font-size: .72rem; color: var(--c-muted); }
+
+    /* Toggle switch */
+    .toggle-switch {
+      position: relative;
+      width: 42px; height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--c-border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px; border-radius: 50%;
+      left: 3px; top: 3px;
+      background: var(--c-muted);
+      transition: transform .2s, background .2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--c-cyan-soft); }
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(20px);
+      background: var(--c-cyan);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ NAV ════════════════════════════════════════════════════ -->
+<nav>
+  <div style="width:90%;max-width:1280px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c2de" stroke-width="2">
+          <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nav-logo-text">152-ФЗ ПРОВЕРКА</div>
+        <div class="nav-logo-sub">Admin Panel</div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a class="nav-link" href="/" target="_blank">Открыть сайт ↗</a>
+    </div>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
+        <span class="theme-toggle-icon" id="themeIcon">🌙</span>
+        <span id="themeLabel">Тёмная</span>
+      </button>
+      <a href="/admin/logout" class="btn btn-ghost" style="min-width:0;min-height:36px;padding:8px 16px;font-size:.72rem">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Выйти
+      </a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-wrap" style="padding-top:0">
+
+  <!-- Hero-strip -->
+  <div style="margin-bottom:var(--sp-xl)">
+    <div class="section-label">Административный раздел</div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-family:var(--f-display);font-size:1.6rem;font-weight:500;margin-bottom:4px">Панель управления</div>
+        <div style="font-size:.82rem;color:var(--c-muted)">Управление интерфейсом, шаблонами и настройками системы</div>
+      </div>
+      <div style="display:flex;gap:var(--sp-sm)">
+        <div style="text-align:center;padding:var(--sp-sm) var(--sp-md);border:1px solid var(--c-border);border-radius:var(--r-sm)">
+          <div style="font-family:var(--f-display);font-size:1.2rem;color:var(--c-cyan)" id="stat-theme">AMD Dark</div>
+          <div style="font-size:.62rem;color:var(--c-muted);text-transform:uppercase;letter-spacing:.08em">Текущая тема</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-grid">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section">Интерфейс</div>
+      <a class="nav-item active" onclick="showPanel('themes', this)">
+        <span class="nav-dot"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Шаблоны тем
+      </a>
+      <a class="nav-item" onclick="showPanel('css', this)">
+        <span class="nav-dot"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        CSS-редактор
+      </a>
+      <a class="nav-item" onclick="showPanel('logo', this)">
+        <span class="nav-dot"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Логотип и заголовки
+      </a>
+
+      <div class="sidebar-section">Система</div>
+      <a class="nav-item" onclick="showPanel('ai-model', this)">
+        <span class="nav-dot"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 11h2a2 2 0 0 1 0 4h-2"/><path d="M8 11H6a2 2 0 0 0 0 4h2"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+        AI модель
+      </a>
+      <a class="nav-item" onclick="showPanel('settings', this)">
+        <span class="nav-dot"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Настройки
+      </a>
+    </div>
+
+    <!-- Content -->
+    <div class="content-area">
+
+      <!-- ── PANEL: Themes ──────────────────────────────────── -->
+      <div class="panel active" id="panel-themes">
+        <div class="section-label">Выбор шаблона</div>
+        <div style="margin-bottom:var(--sp-md)">
+          <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:500;margin-bottom:4px">Шаблоны интерфейса</div>
+          <div style="font-size:.78rem;color:var(--c-muted)">Выберите готовый шаблон оформления. Изменения применяются мгновенно для всех модулей (152-ФЗ, Санкции, Авторизация).</div>
+        </div>
+
+        <div class="theme-grid">
+
+          <!-- AMD Dark -->
+          <div class="theme-card selected" id="card-amd-dark" onclick="selectTheme('amd-dark', this)">
+            <div class="theme-card-selected-badge">Активна</div>
+            <div class="theme-preview preview-amd">
+              <div class="p-nav">
+                <div class="p-dot"></div>
+                <div class="p-logo"></div>
+              </div>
+              <div class="p-body">
+                <div class="p-hero">
+                  <div class="p-title"></div>
+                  <div class="p-sub"></div>
+                  <div class="p-sub" style="width:70px"></div>
+                  <div class="p-btn"></div>
+                </div>
+              </div>
+              <div class="p-bar"></div>
+            </div>
+            <div class="theme-card-info">
+              <div class="theme-name">AMD Dark</div>
+              <div class="theme-desc">Тёмная тема в стиле AMD — cyan акценты, геометрия</div>
+            </div>
+          </div>
+
+          <!-- AMD Light -->
+          <div class="theme-card" id="card-amd-light" onclick="selectTheme('amd-light', this)">
+            <div class="theme-card-selected-badge">Активна</div>
+            <div class="theme-preview preview-light">
+              <div class="p-nav">
+                <div class="p-dot"></div>
+                <div class="p-logo"></div>
+              </div>
+              <div class="p-body">
+                <div class="p-hero">
+                  <div class="p-title"></div>
+                  <div class="p-sub"></div>
+                  <div class="p-sub" style="width:70px"></div>
+                  <div class="p-btn"></div>
+                </div>
+              </div>
+              <div class="p-bar"></div>
+            </div>
+            <div class="theme-card-info">
+              <div class="theme-name">AMD Light</div>
+              <div class="theme-desc">Светлая тема — тёплый белый фон, синие акценты</div>
+            </div>
+          </div>
+
+          <!-- Minimal Dark -->
+          <div class="theme-card" id="card-minimal" onclick="selectTheme('minimal', this)">
+            <div class="theme-card-selected-badge">Активна</div>
+            <div class="theme-preview preview-minimal">
+              <div class="p-nav">
+                <div class="p-dot"></div>
+                <div class="p-logo"></div>
+              </div>
+              <div class="p-body">
+                <div class="p-hero">
+                  <div class="p-title"></div>
+                  <div class="p-sub"></div>
+                  <div class="p-sub" style="width:70px"></div>
+                  <div class="p-btn"></div>
+                </div>
+              </div>
+              <div class="p-bar"></div>
+            </div>
+            <div class="theme-card-info">
+              <div class="theme-name">Minimal Dark</div>
+              <div class="theme-desc">Сверхминималистичная тёмная тема, монохром</div>
+            </div>
+          </div>
+
+          <!-- Green Terminal -->
+          <div class="theme-card" id="card-green" onclick="selectTheme('green', this)">
+            <div class="theme-card-selected-badge">Активна</div>
+            <div class="theme-preview preview-green">
+              <div class="p-nav">
+                <div class="p-dot"></div>
+                <div class="p-logo"></div>
+              </div>
+              <div class="p-body">
+                <div class="p-hero">
+                  <div class="p-title"></div>
+                  <div class="p-sub"></div>
+                  <div class="p-sub" style="width:70px"></div>
+                  <div class="p-btn"></div>
+                </div>
+              </div>
+              <div class="p-bar"></div>
+            </div>
+            <div class="theme-card-info">
+              <div class="theme-name">Green Terminal</div>
+              <div class="theme-desc">Зелёные акценты — стиль «хакерский терминал»</div>
+            </div>
+          </div>
+
+          <!-- Intel Blue -->
+          <div class="theme-card" id="card-intel" onclick="selectTheme('intel', this)">
+            <div class="theme-card-selected-badge">Активна</div>
+            <div class="theme-preview preview-intel">
+              <div class="p-nav">
+                <div class="p-dot">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/></svg>
+                </div>
+                <div class="p-logo"></div>
+              </div>
+              <div class="p-body">
+                <div class="p-hero">
+                  <div class="p-pill"></div>
+                  <div class="p-title"></div>
+                  <div class="p-sub"></div>
+                  <div class="p-sub" style="width:70px"></div>
+                  <div class="p-btn"></div>
+                </div>
+              </div>
+            </div>
+            <div class="theme-card-info">
+              <div class="theme-name">Intel Blue</div>
+              <div class="theme-desc">Синие pill-кнопки, DM Sans, ambient glow — корпоративный стиль</div>
+            </div>
+          </div>
+
+        </div><!-- /theme-grid -->
+
+        <div style="display:flex;gap:var(--sp-md);align-items:center;flex-wrap:wrap">
+          <button class="btn" onclick="applyTheme()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Применить тему
+          </button>
+          <span style="font-size:.72rem;color:var(--c-muted)">Тема применяется для всех модулей сайта</span>
+        </div>
+      </div>
+
+      <!-- ── PANEL: CSS Editor ───────────────────────────────── -->
+      <div class="panel" id="panel-css">
+        <div class="section-label">CSS-редактор</div>
+        <div style="margin-bottom:var(--sp-md)">
+          <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:500;margin-bottom:4px">Редактор пользовательских стилей</div>
+          <div style="font-size:.78rem;color:var(--c-muted)">CSS подключается поверх основной темы. Изменения вступают в силу после нажатия «Сохранить».</div>
+        </div>
+
+        <div class="editor-wrap">
+          <textarea class="code-editor" id="custom-css-editor" spellcheck="false"
+                    placeholder="/* Ваши пользовательские стили */&#10;&#10;:root {&#10;  --c-cyan: #00c2de;&#10;}&#10;&#10;.btn {&#10;  border-radius: 4px;&#10;}">{{ custom_css }}</textarea>
+          <div style="display:flex;gap:var(--sp-md);align-items:center;flex-wrap:wrap">
+            <button class="btn" onclick="saveCSS()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Сохранить CSS
+            </button>
+            <button class="btn btn-ghost" onclick="resetCSS()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Сбросить
+            </button>
+            <span style="font-size:.72rem;color:var(--c-muted)">Tab вставляет 2 пробела</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PANEL: Logo ────────────────────────────────────── -->
+      <div class="panel" id="panel-logo">
+        <div class="section-label">Брендинг</div>
+        <div style="margin-bottom:var(--sp-md)">
+          <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:500;margin-bottom:4px">Логотип и заголовки</div>
+          <div style="font-size:.78rem;color:var(--c-muted)">Настройте текст логотипа, заголовки страниц и теги навигации.</div>
+        </div>
+
+        <!-- Logo image upload zone -->
+        <div class="logo-upload-zone" id="logo-upload-zone"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleLogoDrop(event)">
+          <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                 onchange="handleLogoFile(this.files[0])">
+          <div class="logo-upload-thumb" id="logo-thumb">
+            {% if logo_image_url %}
+            <img src="{{ logo_image_url }}" id="logo-thumb-img" alt="Логотип">
+            {% else %}
+            <svg id="logo-thumb-placeholder" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-muted)" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            {% endif %}
+          </div>
+          <div class="logo-upload-info">
+            <div class="logo-upload-title">Графический логотип</div>
+            <div class="logo-upload-hint">PNG, JPG, SVG, WEBP · до 2 МБ · рекомендуется 160×40 px или квадрат</div>
+          </div>
+          <span class="logo-upload-badge {% if logo_image_url %}has-logo{% endif %}" id="logo-upload-badge">
+            {% if logo_image_url %}Загружен{% else %}Не загружен{% endif %}
+          </span>
+          <button type="button" class="logo-remove-btn {% if logo_image_url %}visible{% endif %}"
+                  id="logo-remove-btn"
+                  onclick="event.stopPropagation();removeLogo()">
+            ✕ Удалить
+          </button>
+        </div>
+
+        <div class="logo-preview" id="logo-preview-block">
+          <div class="logo-preview-icon" id="logo-preview-icon-wrap">
+            {% if logo_image_url %}
+            <img src="{{ logo_image_url }}" id="logo-preview-img"
+                 style="width:100%;height:100%;object-fit:contain;border-radius:3px" alt="Логотип">
+            {% else %}
+            <svg id="logo-preview-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00c2de" stroke-width="2">
+              <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+            {% endif %}
+          </div>
+          <div>
+            <div class="logo-preview-text" id="logo-preview-text">152-ФЗ ПРОВЕРКА</div>
+            <div class="logo-preview-sub" id="logo-preview-sub">Audit &amp; Compliance</div>
+          </div>
+        </div>
+
+        <div class="logo-editor-grid">
+          <div class="field-group">
+            <label class="field-label">Название системы</label>
+            <input class="field-input" type="text" id="logo-name" value="{{ logo_name }}"
+                   oninput="updateLogoPreview()" placeholder="152-ФЗ ПРОВЕРКА">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Подзаголовок</label>
+            <input class="field-input" type="text" id="logo-sub" value="{{ logo_sub }}"
+                   oninput="updateLogoPreview()" placeholder="Audit &amp; Compliance">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Заголовок страницы (title)</label>
+            <input class="field-input" type="text" id="page-title" value="{{ page_title }}"
+                   placeholder="Проверка сайтов по 152-ФЗ">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Hero eyebrow (строчка над заголовком)</label>
+            <input class="field-input" type="text" id="hero-eyebrow" value="{{ hero_eyebrow }}"
+                   placeholder="Роскомнадзор · АС МПДн · 152-ФЗ">
+          </div>
+        </div>
+
+        <div class="field-group" style="margin-bottom:var(--sp-md)">
+          <label class="field-label">Hero-заголовок (первая строка)</label>
+          <input class="field-input" type="text" id="hero-title" value="{{ hero_title }}"
+                 placeholder="Автоматизированный аудит сайтов">
+        </div>
+
+        <div class="field-group" style="margin-bottom:var(--sp-xl)">
+          <label class="field-label">Hero-подзаголовок</label>
+          <input class="field-input" type="text" id="hero-sub" value="{{ hero_sub }}"
+                 placeholder="Проверяем политику ПД, cookie-баннер...">
+        </div>
+
+        <button class="btn" onclick="saveLogoBranding()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Сохранить брендинг
+        </button>
+      </div>
+
+      <!-- ── PANEL: Settings ───────────────────────────────── -->
+      <!-- ── PANEL: AI Model ────────────────────────────────── -->
+      <div class="panel" id="panel-ai-model">
+        <div class="section-label">Настройки AI-модели</div>
+        <div style="margin-bottom:var(--sp-md)">
+          <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:500;margin-bottom:4px">Нейросетевая модель</div>
+          <div style="font-size:.78rem;color:var(--c-muted)">Настройте API-провайдера для генерации рекомендаций по 152-ФЗ и ТЗ для разработчика. Совместимо с любым OpenAI-совместимым API (DeepSeek, OpenAI, Qwen, и др.).</div>
+        </div>
+
+        <div class="input-card">
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:var(--sp-sm)">
+            <div class="setting-info">
+              <div class="setting-title">Base URL</div>
+              <div class="setting-desc">Базовый URL API-провайдера</div>
+            </div>
+            <input class="field-input" type="url" id="ai-base-url"
+                   placeholder="https://api.deepseek.com"
+                   style="width:100%"
+                   onchange="saveAiSetting()">
+          </div>
+
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:var(--sp-sm)">
+            <div class="setting-info">
+              <div class="setting-title">API Key</div>
+              <div class="setting-desc">Ключ доступа к API</div>
+            </div>
+            <input class="field-input" type="password" id="ai-api-key"
+                   placeholder="sk-..."
+                   style="width:100%"
+                   autocomplete="off"
+                   onchange="saveAiSetting()">
+          </div>
+
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:var(--sp-sm)">
+            <div class="setting-info">
+              <div class="setting-title">Модель</div>
+              <div class="setting-desc">Идентификатор модели (deepseek-chat, gpt-4o, qwen-plus и др.)</div>
+            </div>
+            <input class="field-input" type="text" id="ai-model-name"
+                   placeholder="deepseek-chat"
+                   style="width:100%"
+                   onchange="saveAiSetting()">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:var(--sp-md);align-items:center;flex-wrap:wrap">
+          <button class="btn" onclick="saveAiSetting()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Сохранить
+          </button>
+          <span style="font-size:.72rem;color:var(--c-muted)">Настройки применяются к следующему запросу рекомендаций</span>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-settings">
+        <div class="section-label">Системные настройки</div>
+        <div style="margin-bottom:var(--sp-md)">
+          <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:500;margin-bottom:4px">Настройки системы</div>
+          <div style="font-size:.78rem;color:var(--c-muted)">Базовые параметры работы приложения.</div>
+        </div>
+
+        <div class="input-card">
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-title">Переключатель темы для пользователей</div>
+              <div class="setting-desc">Показывать кнопку смены тёмной/светлой темы в шапке сайта</div>
+            </div>
+            <label class="toggle-switch" style="margin-left:var(--sp-lg)">
+              <input type="checkbox" id="toggle-theme-switcher" checked onchange="saveSetting('theme_switcher', this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-title">Hero-секция</div>
+              <div class="setting-desc">Показывать большой заголовок с описанием системы</div>
+            </div>
+            <label class="toggle-switch" style="margin-left:var(--sp-lg)">
+              <input type="checkbox" id="toggle-hero" checked onchange="saveSetting('show_hero', this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-title">AI-рекомендации</div>
+              <div class="setting-desc">Показывать блок генерации рекомендаций в результатах</div>
+            </div>
+            <label class="toggle-switch" style="margin-left:var(--sp-lg)">
+              <input type="checkbox" id="toggle-ai" checked onchange="saveSetting('show_ai', this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-title">Максимум URL за запрос</div>
+              <div class="setting-desc">Сколько сайтов можно проверить за один сеанс (1–100)</div>
+            </div>
+            <input class="field-input" type="number" min="1" max="100" value="{{ max_urls }}"
+                   id="max-urls-input"
+                   style="width:80px;text-align:center;margin-left:var(--sp-lg)"
+                   onchange="saveSetting('max_urls', this.value)">
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-title">Страниц на домен</div>
+              <div class="setting-desc">Сколько страниц сайта проверять за один сеанс (1–10)</div>
+            </div>
+            <input class="field-input" type="number" min="1" max="10" value="{{ max_pages }}"
+                   id="max-pages-input"
+                   style="width:80px;text-align:center;margin-left:var(--sp-lg)"
+                   onchange="saveSetting('max_pages', this.value)">
+          </div>
+        </div>
+
+        <div style="margin-top:var(--sp-xl)">
+          <button class="btn" onclick="saveAllSettings()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Сохранить настройки
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /admin-grid -->
+</div><!-- /page-wrap -->
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg id="toast-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-msg">Сохранено</span>
+</div>
+
+<script id="init-data" type="application/json">
+{"current_theme": {{ current_theme | tojson }}, "settings": {{ settings_json | tojson }}}
+</script>
+
+<script>
+// ── Init data ─────────────────────────────────────────────────
+const _initData = JSON.parse(document.getElementById('init-data').textContent);
+const _currentTheme = _initData.current_theme || 'amd-dark';
+const _settings     = _initData.settings      || {};
+
+// ── Тема ─────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('themeIcon').textContent  = isDark ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = isDark ? 'Светлая' : 'Тёмная';
+}
+
+// ── Навигация по панелям ──────────────────────────────────────
+function showPanel(name, link) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (link) link.classList.add('active');
+}
+
+// ── AI Model Settings ──────────────────────────────────────
+function saveAiSetting() {
+  const payload = {
+    setting: 'ai_model',
+    value: {
+      base_url: document.getElementById('ai-base-url').value,
+      api_key:  document.getElementById('ai-api-key').value,
+      model:    document.getElementById('ai-model-name').value,
+    }
+  };
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => data.ok ? showToast('Настройки AI сохранены', 'success') : showToast('Ошибка', 'error'))
+  .catch(() => showToast('Ошибка соединения', 'error'));
+}
+
+// ── Выбор темы ────────────────────────────────────────────────
+let selectedTheme = _currentTheme;
+
+function selectTheme(theme, card) {
+  document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedTheme = theme;
+}
+
+function applyTheme() {
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ setting: 'theme', value: selectedTheme })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      const names = {
+        'amd-dark':  'AMD Dark',
+        'amd-light': 'AMD Light',
+        'minimal':   'Minimal Dark',
+        'green':     'Green Terminal',
+        'intel':     'Intel Blue',
+      };
+      document.getElementById('stat-theme').textContent = names[selectedTheme] || selectedTheme;
+      showToast('Тема «' + (names[selectedTheme] || selectedTheme) + '» применена', 'success');
+    } else {
+      showToast('Ошибка: ' + (data.error || 'unknown'), 'error');
+    }
+  })
+  .catch(e => showToast('Ошибка соединения', 'error'));
+}
+
+// ── CSS Editor ────────────────────────────────────────────────
+function saveCSS() {
+  const css = document.getElementById('custom-css-editor').value;
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ setting: 'custom_css', value: css })
+  })
+  .then(r => r.json())
+  .then(data => data.ok ? showToast('CSS сохранён', 'success') : showToast('Ошибка', 'error'))
+  .catch(() => showToast('Ошибка соединения', 'error'));
+}
+
+function resetCSS() {
+  if (!confirm('Сбросить пользовательский CSS?')) return;
+  document.getElementById('custom-css-editor').value = '';
+  saveCSS();
+}
+
+// Tab → spaces in textarea
+document.getElementById('custom-css-editor').addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const el = e.target;
+    const start = el.selectionStart;
+    const end   = el.selectionEnd;
+    el.value = el.value.slice(0, start) + '  ' + el.value.slice(end);
+    el.selectionStart = el.selectionEnd = start + 2;
+  }
+});
+
+// ── Logo / Branding ───────────────────────────────────────────
+function updateLogoPreview() {
+  const name = document.getElementById('logo-name').value || '152-ФЗ ПРОВЕРКА';
+  const sub  = document.getElementById('logo-sub').value  || 'Audit & Compliance';
+  document.getElementById('logo-preview-text').textContent = name;
+  document.getElementById('logo-preview-sub').textContent  = sub;
+}
+
+function handleLogoDrop(e) {
+  e.preventDefault();
+  document.getElementById('logo-upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleLogoFile(file);
+}
+
+function handleLogoFile(file) {
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('Файл слишком большой (макс. 2 МБ)', 'error'); return;
+  }
+  const allowed = ['image/png','image/jpeg','image/svg+xml','image/webp'];
+  if (!allowed.includes(file.type)) {
+    showToast('Формат не поддерживается. PNG, JPG, SVG, WEBP', 'error'); return;
+  }
+
+  // Локальный превью мгновенно
+  const reader = new FileReader();
+  reader.onload = e => _applyLogoPreview(e.target.result);
+  reader.readAsDataURL(file);
+
+  // Загрузка на сервер
+  const fd = new FormData();
+  fd.append('logo', file);
+  const zone = document.getElementById('logo-upload-zone');
+  zone.style.opacity = '.5';
+  zone.style.pointerEvents = 'none';
+
+  fetch('/admin/upload-logo', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      zone.style.opacity = '';
+      zone.style.pointerEvents = '';
+      if (data.ok) {
+        _setLogoBadge(true);
+        showToast('Логотип загружен', 'success');
+      } else {
+        showToast('Ошибка: ' + (data.error || 'unknown'), 'error');
+      }
+    })
+    .catch(() => {
+      zone.style.opacity = '';
+      zone.style.pointerEvents = '';
+      showToast('Ошибка соединения', 'error');
+    });
+}
+
+function _applyLogoPreview(src) {
+  // Thumb
+  const thumb = document.getElementById('logo-thumb');
+  thumb.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:contain" alt="Логотип">`;
+  // Prevew block icon
+  const wrap = document.getElementById('logo-preview-icon-wrap');
+  wrap.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:contain;border-radius:3px" alt="Логотип">`;
+}
+
+function _setLogoBadge(hasLogo) {
+  const badge  = document.getElementById('logo-upload-badge');
+  const removeBtn = document.getElementById('logo-remove-btn');
+  if (hasLogo) {
+    badge.textContent = 'Загружен';
+    badge.classList.add('has-logo');
+    removeBtn.classList.add('visible');
+  } else {
+    badge.textContent = 'Не загружен';
+    badge.classList.remove('has-logo');
+    removeBtn.classList.remove('visible');
+  }
+}
+
+function removeLogo() {
+  if (!confirm('Удалить логотип? Вместо него будет использоваться иконка по умолчанию.')) return;
+  fetch('/admin/remove-logo', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        // Сброс thumb
+        document.getElementById('logo-thumb').innerHTML = `
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-muted)" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>`;
+        // Сброс preview
+        document.getElementById('logo-preview-icon-wrap').innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00c2de" stroke-width="2">
+            <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>`;
+        _setLogoBadge(false);
+        showToast('Логотип удалён', 'success');
+      } else {
+        showToast('Ошибка: ' + (data.error || 'unknown'), 'error');
+      }
+    })
+    .catch(() => showToast('Ошибка соединения', 'error'));
+}
+
+function saveLogoBranding() {
+  const payload = {
+    setting: 'branding',
+    value: {
+      logo_name:    document.getElementById('logo-name').value,
+      logo_sub:     document.getElementById('logo-sub').value,
+      page_title:   document.getElementById('page-title').value,
+      hero_eyebrow: document.getElementById('hero-eyebrow').value,
+      hero_title:   document.getElementById('hero-title').value,
+      hero_sub:     document.getElementById('hero-sub').value,
+    }
+  };
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => data.ok ? showToast('Брендинг сохранён', 'success') : showToast('Ошибка', 'error'))
+  .catch(() => showToast('Ошибка соединения', 'error'));
+}
+
+// ── Настройки ─────────────────────────────────────────────────
+function saveSetting(key, value) {
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ setting: key, value: value })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) showToast('Настройка сохранена', 'success');
+  })
+  .catch(() => {});
+}
+
+function saveAllSettings() {
+  const payload = {
+    setting: 'all_settings',
+    value: {
+      theme_switcher: document.getElementById('toggle-theme-switcher').checked,
+      show_hero:      document.getElementById('toggle-hero').checked,
+      show_ai:        document.getElementById('toggle-ai').checked,
+      max_urls:       parseInt(document.getElementById('max-urls-input').value) || 50,
+      max_pages:      parseInt(document.getElementById('max-pages-input').value) || 4,
+    }
+  };
+  fetch('/admin/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => data.ok ? showToast('Настройки сохранены', 'success') : showToast('Ошибка', 'error'))
+  .catch(() => showToast('Ошибка соединения', 'error'));
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t   = document.getElementById('toast');
+  const ico = document.getElementById('toast-icon');
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  ico.innerHTML = type === 'success'
+    ? '<polyline points="20 6 9 17 4 12"/>'
+    : '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Init: sync selected card with server state ────────────────
+(function init() {
+  const theme = _currentTheme;
+  document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+  const active = document.getElementById('card-' + theme);
+  if (active) active.classList.add('selected');
+  selectedTheme = theme;
+  const names = { 'amd-dark':'AMD Dark','amd-light':'AMD Light','minimal':'Minimal Dark','green':'Green Terminal','intel':'Intel Blue' };
+  document.getElementById('stat-theme').textContent = names[theme] || theme;
+
+  // Sync toggle states from server
+  const s = _settings;
+  if (s) {
+    if ('theme_switcher' in s) document.getElementById('toggle-theme-switcher').checked = s.theme_switcher;
+    if ('show_hero'      in s) document.getElementById('toggle-hero').checked = s.show_hero;
+    if ('show_ai'        in s) document.getElementById('toggle-ai').checked = s.show_ai;
+    if ('max_urls'       in s) document.getElementById('max-urls-input').value = s.max_urls;
+    if ('max_pages'      in s) document.getElementById('max-pages-input').value = s.max_pages;
+    if (s.ai_model) {
+      if (s.ai_model.base_url) document.getElementById('ai-base-url').value = s.ai_model.base_url;
+      if (s.ai_model.api_key)  document.getElementById('ai-api-key').value  = s.ai_model.api_key;
+      if (s.ai_model.model)    document.getElementById('ai-model-name').value = s.ai_model.model;
+    }
+  }
+})();
+</script>
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Наверх" style="position:fixed;bottom:24px;right:24px;z-index:999;width:42px;height:42px;border-radius:50%;border:1px solid var(--c-border,#333);background:var(--c-bg-card,#1a1a2e);color:var(--c-text,#e0e0e0);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .3s,transform .3s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+<script>(function(){var b=document.getElementById('scroll-top-btn');window.addEventListener('scroll',function(){b.style.display=window.scrollY>300?'flex':'none';b.style.opacity=window.scrollY>300?'1':'0';b.style.transform=window.scrollY>300?'scale(1)':'scale(0.8)'});})()</script>
+</body>
+</html>

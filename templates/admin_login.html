@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — 152-ФЗ Проверка</title>
+  <link rel="stylesheet" href="/static/css/fonts.css">
+  <link rel="stylesheet" href="/static/css/styles-amd.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--c-bg);
+    }
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: var(--sp-md);
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+    .login-logo-icon {
+      width: 44px; height: 44px;
+      border: 1px solid var(--c-cyan);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .login-logo-icon::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,194,222,.15) 0%, transparent 60%);
+    }
+    .login-logo-icon svg { position: relative; z-index: 1; }
+    .login-logo-text {
+      font-family: var(--f-display);
+      font-size: 1.05rem; font-weight: 500;
+      letter-spacing: .03em;
+      line-height: 1.1;
+    }
+    .login-logo-sub {
+      font-size: .6rem; color: var(--c-muted);
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+
+    .login-card {
+      background: var(--c-bg-card);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      padding: var(--sp-xl) var(--sp-xl);
+      position: relative; overflow: hidden;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 2px; height: 80px;
+      background: var(--c-cyan);
+    }
+    .login-card::after {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 80px; height: 2px;
+      background: var(--c-cyan);
+    }
+    .login-eyebrow {
+      font-size: .68rem; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--c-cyan);
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: var(--sp-md);
+    }
+    .login-eyebrow::before {
+      content: ''; width: 20px; height: 1px; background: var(--c-cyan);
+    }
+    .login-title {
+      font-family: var(--f-display);
+      font-size: 1.4rem; font-weight: 500;
+      margin-bottom: var(--sp-xs);
+    }
+    .login-sub {
+      font-size: .78rem; color: var(--c-muted);
+      margin-bottom: var(--sp-xl);
+    }
+
+    .field-group { margin-bottom: var(--sp-md); }
+    .field-label {
+      font-size: .68rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .1em;
+      color: var(--c-muted);
+      margin-bottom: var(--sp-xs);
+      display: block;
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 12px var(--sp-md);
+      font-family: var(--f-body);
+      font-size: .88rem;
+      color: var(--c-text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field-input:focus {
+      border-color: var(--c-cyan);
+      box-shadow: 0 0 0 1px var(--c-cyan);
+    }
+    .field-input::placeholder { color: var(--c-muted); opacity: .5; }
+
+    .pw-row {
+      position: relative;
+    }
+    .pw-row .field-input { padding-right: 44px; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--c-muted); cursor: pointer;
+      padding: 0; display: flex;
+      transition: color .15s;
+    }
+    .pw-toggle:hover { color: var(--c-cyan); }
+
+    .error-msg {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px var(--sp-md);
+      border: 1px solid rgba(239,68,68,.3);
+      border-left: 2px solid var(--c-red);
+      border-radius: var(--r-sm);
+      background: var(--c-red-soft);
+      font-size: .78rem; color: var(--c-red);
+      margin-bottom: var(--sp-md);
+    }
+    .error-msg svg { flex-shrink: 0; }
+
+    .btn-login {
+      width: 100%;
+      margin-top: var(--sp-xs);
+    }
+
+    .login-footer {
+      text-align: center;
+      margin-top: var(--sp-lg);
+      font-size: .7rem; color: var(--c-muted);
+    }
+    .login-footer a {
+      color: var(--c-cyan); text-decoration: none;
+    }
+    .login-footer a:hover { text-decoration: underline; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-6px); }
+      40%,80%  { transform: translateX(6px); }
+    }
+    .shake { animation: shake .4s ease; }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-logo">
+    <div class="login-logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c2de" stroke-width="2">
+        <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+    </div>
+    <div>
+      <div class="login-logo-text">152-ФЗ ПРОВЕРКА</div>
+      <div class="login-logo-sub">Audit &amp; Compliance</div>
+    </div>
+  </div>
+
+  <div class="login-card" id="loginCard">
+    <div class="login-eyebrow">Административный доступ</div>
+    <div class="login-title">Вход в панель</div>
+    <div class="login-sub">Только для администраторов системы</div>
+
+    {% if error %}
+    <div class="error-msg">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+      </svg>
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/admin/login" onsubmit="handleSubmit(event)">
+      <div class="field-group">
+        <label class="field-label" for="password">Пароль</label>
+        <div class="pw-row">
+          <input class="field-input" type="password" id="password" name="password"
+                 placeholder="Введите пароль" autofocus autocomplete="current-password">
+          <button type="button" class="pw-toggle" onclick="togglePw()" title="Показать/скрыть пароль">
+            <svg id="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-login">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        Войти
+      </button>
+    </form>
+  </div>
+
+  <div class="login-footer">
+    <a href="/">← Вернуться на главную</a>
+  </div>
+</div>
+
+<script>
+function togglePw() {
+  const inp = document.getElementById('password');
+  const eye = document.getElementById('pw-eye');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  eye.innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+function handleSubmit(e) {
+  // Визуальный фидбек при сабмите
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .6s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Проверка...`;
+}
+</script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Наверх" style="position:fixed;bottom:24px;right:24px;z-index:999;width:42px;height:42px;border-radius:50%;border:1px solid var(--border,#333);background:var(--bg-card,#1a1a2e);color:var(--text,#e0e0e0);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .3s,transform .3s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+<script>(function(){var b=document.getElementById('scroll-top-btn');window.addEventListener('scroll',function(){b.style.display=window.scrollY>300?'flex':'none';b.style.opacity=window.scrollY>300?'1':'0';b.style.transform=window.scrollY>300?'scale(1)':'scale(0.8)'});})()</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+# Secrets & local env
+.env
+.env.*
+!.env.example
+Backup-.env
+*.pem
+*.key
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime / generated data
+history.db
+history.db-*
+errors.log
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep
+recommendations/*
+!recommendations/.gitkeep
+screenshots/*
+!screenshots/.gitkeep
+static/uploaded_logo.png
+static/logo.*
+
+# IDE / agent tooling
+.idea/
+.vscode/
+.cursor/
+.gemini/
+.kiro/
+.clinerules
+.windsurfrules
+.phcode.json
+opencode.json
+*.swp
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Duplicate root screenshots (canonical copies live in docs/)
+2026-08-11_*.png
+
+admin_settings.json
+

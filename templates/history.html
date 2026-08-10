@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="{{ data_theme | default('dark') }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>История проверок</title>
+<link rel="stylesheet" href="/static/css/fonts.css">
+<style>
+:root, [data-theme="dark"] {
+  --bg:#0c0d0f;--bg-card:#12141a;--bg-hover:#181b24;
+  --border:#232636;--border-hi:#3a3f5c;--text:#e2e4ef;--muted:#5a5f7a;
+  --accent:#2196f3;--accent-s:rgba(33,150,243,.12);
+  --red:#e84545;--red-s:rgba(232,69,69,.12);
+  --green:#3ddc84;--green-s:rgba(61,220,132,.1);
+  --warn:#f08c00;--warn-s:rgba(240,140,0,.1);
+  --nav-bg:rgba(12,13,15,.95);--scan-line:rgba(255,255,255,.012);
+}
+[data-theme="light"] {
+  --bg:#f4f5f7;--bg-card:#ffffff;--bg-hover:#eef0f4;
+  --border:#d4d7de;--border-hi:#b0b5c3;--text:#1a1d28;--muted:#6b7080;
+  --accent:#1565c0;--accent-s:rgba(21,101,192,.08);
+  --red:#c62828;--red-s:rgba(198,40,40,.08);
+  --green:#1a8a4a;--green-s:rgba(26,138,74,.08);
+  --warn:#d87600;--warn-s:rgba(216,118,0,.08);
+  --nav-bg:rgba(255,255,255,.95);--scan-line:rgba(0,0,0,.02);
+}
+:root{--f-mono:'IBM Plex Mono',monospace;--f-body:'IBM Plex Sans',sans-serif;--r:4px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f-body);background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+nav{position:sticky;top:0;z-index:100;background:var(--nav-bg);border-bottom:1px solid var(--border);backdrop-filter:blur(10px)}
+.nav-inner{max-width:1280px;margin:0 auto;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:12px;font-family:var(--f-mono);font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text);text-decoration:none}
+.nav-brand-icon{width:28px;height:28px;border:1px solid var(--accent);display:flex;align-items:center;justify-content:center}
+.nav-badge{font-size:.6rem;background:var(--accent);color:#fff;padding:2px 6px;border-radius:3px;margin-left:8px}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-back{display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:var(--r);transition:color .2s}
+.nav-back:hover{color:var(--text)}
+.theme-toggle{background:none;border:1px solid var(--border);border-radius:var(--r);padding:6px;cursor:pointer;color:var(--muted);display:flex}
+.theme-toggle:hover{color:var(--text);border-color:var(--border-hi)}
+[data-theme="dark"] .icon-sun{display:none}
+[data-theme="light"] .icon-moon{display:none}
+
+.page{max-width:1280px;margin:0 auto;padding:32px 24px}
+.page-title{font-size:1.1rem;font-weight:600;margin-bottom:6px}
+.page-sub{font-size:.8rem;color:var(--muted);margin-bottom:24px}
+
+.tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{padding:10px 20px;font-size:.82rem;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--f-body)}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-card)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;background:var(--bg-hover)}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.scan-row{cursor:pointer}
+tr.scan-row:hover td{background:var(--bg-hover)}
+.domains{display:flex;flex-wrap:wrap;gap:4px;max-width:360px}
+.domain-tag{font-size:.7rem;padding:2px 6px;border-radius:3px;background:var(--accent-s);color:var(--accent);white-space:nowrap}
+.risk-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.68rem;font-weight:600;margin:1px 2px 1px 0}
+.risk-critical{background:var(--red-s);color:var(--red)}
+.risk-high{background:rgba(240,140,0,.15);color:var(--warn)}
+.risk-medium{background:rgba(240,200,0,.12);color:#c8a000}
+.risk-low{background:rgba(74,158,255,.12);color:var(--accent)}
+.risk-clean{background:var(--green-s);color:var(--green)}
+.risk-error{background:rgba(255,255,255,.06);color:var(--muted)}
+
+.actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.link-btn,.icon-btn{font-size:.72rem;padding:4px 10px;border-radius:3px;border:1px solid var(--border);color:var(--muted);text-decoration:none;background:transparent;cursor:pointer;font-family:var(--f-body);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.link-btn:hover{color:var(--accent);border-color:var(--accent)}
+.icon-btn.danger:hover{color:var(--red);border-color:var(--red)}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed}
+
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;justify-content:center;align-items:flex-start;padding:40px 20px;overflow-y:auto}
+.detail-overlay.open{display:flex}
+.detail-card{position:relative;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px;max-width:960px;width:100%;max-height:85vh;overflow-y:auto}
+.detail-card h3{font-size:1rem;margin-bottom:8px;font-family:var(--f-mono)}
+.detail-meta{font-size:.8rem;color:var(--muted);margin-bottom:16px}
+.detail-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.detail-close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1}
+.detail-close:hover{color:var(--text)}
+.site-result{padding:14px 0;border-bottom:1px solid var(--border)}
+.site-result:last-child{border-bottom:none}
+.site-domain{font-weight:600;font-size:.88rem;margin-bottom:6px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.site-meta{font-size:.75rem;color:var(--muted);margin-bottom:8px}
+.site-docs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.site-violations{font-size:.75rem;color:var(--muted);margin-top:6px;max-height:80px;overflow:auto}
+.site-violations li{margin-left:16px;margin-bottom:2px}
+
+.empty{padding:48px;text-align:center;color:var(--muted);font-size:.85rem}
+.muted{color:var(--muted);font-size:.72rem}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="/history">
+      <div class="nav-brand-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      История проверок
+      <span class="nav-badge">HISTORY</span>
+    </a>
+    <div class="nav-right">
+      <a class="nav-back" href="/">152-ФЗ</a>
+      <a class="nav-back" href="/sanctions">Санкции</a>
+      <a class="nav-back" href="/auth">Авторизация</a>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Тема" type="button">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-title">Архив аудитов</div>
+  <div class="page-sub">Результаты проверок по разделам. Можно скачать отчёты и рекомендации, удалить отдельные записи.</div>
+
+  <div class="tabs">
+    <button class="tab active" type="button" onclick="switchTab('main', this)">152-ФЗ</button>
+    <button class="tab" type="button" onclick="switchTab('sanctions', this)">Санкции</button>
+    <button class="tab" type="button" onclick="switchTab('auth', this)">Авторизация</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Домены</th>
+          <th>Риск</th>
+          <th>Нарушения</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="5" class="empty">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-card" id="detail-card"></div>
+</div>
+
+<script>
+(function(){var s=localStorage.getItem('history-theme');if(s)document.documentElement.setAttribute('data-theme',s)})();
+function toggleTheme(){
+  var h=document.documentElement,c=h.getAttribute('data-theme')||'dark',n=c==='dark'?'light':'dark';
+  h.setAttribute('data-theme',n);localStorage.setItem('history-theme',n);
+}
+
+let currentModule = 'main';
+const MODULE_NAMES = {main:'152-ФЗ', sanctions:'Санкции', auth:'Авторизация'};
+const RISK_LABELS = {
+  critical:'КРИТИЧНО', high:'ВЫСОКИЙ', medium:'СРЕДНИЙ',
+  low:'НИЗКИЙ', clean:'ЧИСТО', error:'ОШИБКА'
+};
+
+function switchTab(mod, el) {
+  currentModule = mod;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadHistory(mod);
+}
+
+function loadHistory(mod) {
+  const body = document.getElementById('history-body');
+  body.innerHTML = '<tr><td colspan="5" class="empty">Загрузка...</td></tr>';
+  fetch('/api/history/' + mod + '?limit=100')
+    .then(r => r.json())
+    .then(rows => renderTable(Array.isArray(rows) ? rows : []))
+    .catch(() => {
+      body.innerHTML = '<tr><td colspan="5" class="empty">Ошибка загрузки истории</td></tr>';
+    });
+}
+
+function parseDomains(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [raw]; }
+    catch(e) { return raw ? [raw] : []; }
+  }
+  return [];
+}
+
+function parseRisk(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try { return JSON.parse(raw) || {}; } catch(e) { return {}; }
+}
+
+function riskHtml(summary) {
+  const risk = parseRisk(summary);
+  const parts = Object.entries(risk)
+    .filter(([k,v]) => v > 0)
+    .map(([k,v]) => '<span class="risk-badge risk-' + k + '">' + v + ' ' + (RISK_LABELS[k]||k) + '</span>');
+  return parts.length ? parts.join(' ') : '<span class="risk-badge risk-clean">—</span>';
+}
+
+function normalizeRiskKey(level) {
+  if (!level) return 'clean';
+  const s = String(level).toLowerCase();
+  if (s.includes('крит')) return 'critical';
+  if (s.includes('высок') || s.includes('high')) return 'high';
+  if (s.includes('средн') || s.includes('medium')) return 'medium';
+  if (s.includes('низк') || s.includes('low')) return 'low';
+  if (s.includes('ошиб') || s.includes('error')) return 'error';
+  if (s.includes('чист') || s.includes('clean')) return 'clean';
+  return 'clean';
+}
+
+function stopRow(e) { e.stopPropagation(); }
+
+function renderTable(rows) {
+  const body = document.getElementById('history-body');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">Нет сохранённых проверок в этом разделе.<br><span class="muted">Запустите аудит — результат появится здесь автоматически.</span></td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const dt = r.created_at ? new Date(r.created_at).toLocaleString('ru-RU') : '—';
+    const domains = parseDomains(r.domains);
+    const shown = domains.slice(0, 5);
+    const more = domains.length > 5
+      ? '<span class="domain-tag">+' + (domains.length - 5) + '</span>' : '';
+    const id = r.id;
+    return '<tr class="scan-row" data-id="' + id + '" onclick="showDetail(' + id + ')">' +
+      '<td style="white-space:nowrap">' + esc(dt) + '</td>' +
+      '<td><div class="domains">' +
+        shown.map(d => '<span class="domain-tag">' + esc(d) + '</span>').join('') + more +
+      '</div></td>' +
+      '<td>' + riskHtml(r.risk_summary) + '</td>' +
+      '<td style="text-align:center;font-weight:600">' + (r.violations_count || 0) + '</td>' +
+      '<td onclick="stopRow(event)"><div class="actions">' +
+        '<a class="link-btn" href="/api/history/' + id + '/download/xlsx" title="Excel">xlsx</a>' +
+        '<a class="link-btn" href="/api/history/' + id + '/download/csv" title="CSV">csv</a>' +
+        '<button type="button" class="icon-btn danger" onclick="deleteScan(' + id + ', event)" title="Удалить">✕</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function showDetail(id) {
+  fetch('/api/history/detail/' + id)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { alert(d.error); return; }
+      const results = d.results || [];
+      const docs = d.docs || [];
+      const card = document.getElementById('detail-card');
+      const modName = MODULE_NAMES[d.module] || d.module;
+      const dt = d.created_at ? new Date(d.created_at).toLocaleString('ru-RU') : '—';
+
+      let toolbar =
+        '<div class="detail-toolbar">' +
+          '<a class="link-btn" href="/api/history/' + id + '/download/xlsx">↓ Excel</a>' +
+          '<a class="link-btn" href="/api/history/' + id + '/download/csv">↓ CSV</a>' +
+          '<button type="button" class="icon-btn danger" onclick="deleteScan(' + id + ', event, true)">Удалить запись</button>' +
+        '</div>';
+
+      const sitesHtml = results.map(r => {
+        const risk = r.risk_level || r.risk || '—';
+        const riskKey = normalizeRiskKey(risk);
+        const domain = r.domain || r.url || '';
+        const domainDocs = docs
+          .map((doc, idx) => ({doc, idx}))
+          .filter(x => (x.doc.domain || '') === domain ||
+                       (domain && (x.doc.domain || '').indexOf(domain) >= 0));
+        // если точного совпадения нет — все docs без domain-фильтра при одном сайте
+        const list = domainDocs.length ? domainDocs
+          : (results.length === 1 ? docs.map((doc, idx) => ({doc, idx})) : []);
+
+        let docsHtml = '';
+        if (list.length) {
+          docsHtml = '<div class="site-docs">' + list.map(({doc, idx}) => {
+            const label = doc.label || doc.doc_type || 'Документ';
+            return '<a class="link-btn" href="/api/history/' + id + '/doc/' + idx + '">↓ ' + esc(label) + '</a>';
+          }).join('') + '</div>';
+        }
+
+        let violHtml = '';
+        const viols = r.violations || [];
+        if (Array.isArray(viols) && viols.length) {
+          violHtml = '<ul class="site-violations">' +
+            viols.slice(0, 12).map(v => '<li>' + esc(String(v)) + '</li>').join('') +
+            (viols.length > 12 ? '<li class="muted">… ещё ' + (viols.length - 12) + '</li>' : '') +
+            '</ul>';
+        } else if (r.hits && r.hits.length) {
+          violHtml = '<ul class="site-violations">' +
+            r.hits.slice(0, 12).map(h =>
+              '<li>' + esc((h.name || h.pattern || '') + (h.severity ? ' [' + h.severity + ']' : '')) + '</li>'
+            ).join('') + '</ul>';
+        }
+
+        const pages = (r.pages_checked || []).length;
+        const meta = r.error
+          ? ('Ошибка: ' + r.error)
+          : ((pages ? pages + ' стр. · ' : '') + (r.check_time_sec || 0) + ' сек');
+
+        return '<div class="site-result">' +
+          '<div class="site-domain">' +
+            '<span class="risk-badge risk-' + riskKey + '">' + (RISK_LABELS[riskKey] || esc(String(risk))) + '</span> ' +
+            esc(domain) +
+          '</div>' +
+          '<div class="site-meta">' + esc(meta) + '</div>' +
+          docsHtml + violHtml +
+        '</div>';
+      }).join('') || '<div class="empty">Нет данных по сайтам</div>';
+
+      // Общий список docx, если не привязались к доменам
+      let allDocsBar = '';
+      if (docs.length) {
+        allDocsBar = '<div style="margin:12px 0 8px;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Рекомендации / ТЗ</div>' +
+          '<div class="site-docs" style="margin-bottom:16px">' +
+          docs.map((doc, idx) =>
+            '<a class="link-btn" href="/api/history/' + id + '/doc/' + idx + '">↓ ' +
+            esc(doc.label || doc.doc_type || 'doc') +
+            (doc.domain ? ' · ' + esc(doc.domain) : '') +
+            '</a>'
+          ).join('') +
+          '</div>';
+      }
+
+      card.innerHTML =
+        '<button class="detail-close" type="button" onclick="closeDetail()">&times;</button>' +
+        '<h3>' + esc(modName) + ' — ' + esc(dt) + '</h3>' +
+        '<div class="detail-meta">Доменов: ' + (d.total_sites || results.length) +
+          ' · Нарушений: ' + (d.violations_count || 0) +
+          ' · Job: <span class="muted">' + esc(d.job_id || '') + '</span></div>' +
+        toolbar + allDocsBar + sitesHtml;
+
+      document.getElementById('detail-overlay').classList.add('open');
+    })
+    .catch(e => alert('Ошибка: ' + e.message));
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+function deleteScan(id, event, closeAfter) {
+  if (event) event.stopPropagation();
+  if (!confirm('Удалить эту проверку из истории? Файлы отчётов и docx будут удалены.')) return;
+  fetch('/api/history/' + id, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { alert(d.error); return; }
+      if (closeAfter) closeDetail();
+      loadHistory(currentModule);
+    })
+    .catch(e => alert('Ошибка удаления: ' + e.message));
+}
+
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+loadHistory('main');
+</script>
+</body>
+</html>

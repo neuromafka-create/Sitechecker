@@ -1,0 +1,22 @@
+{
+  "theme": "amd-dark",
+  "custom_css": "",
+  "theme_switcher": true,
+  "show_hero": true,
+  "show_ai": true,
+  "max_urls": 20,
+  "max_pages": 5,
+  "branding": {
+    "logo_name": "152-ФЗ ПРОВЕРКА",
+    "logo_sub": "Аудит и соблюдение нормативных требований",
+    "page_title": "Проверка сайтов по 152-ФЗ",
+    "hero_eyebrow": "Роскомнадзор · АС МПДн · 152-ФЗ",
+    "hero_title": "Автоматизированный аудит сайтов на соответствие требованиям закона",
+    "hero_sub": "Проверяем политику ПД, cookie-баннер, согласия, трекеры и иностранные ресурсы."
+  },
+  "ai_model": {
+    "base_url": "",
+    "api_key": "",
+    "model": ""
+  }
+}
