@@ -407,9 +407,9 @@ def stream_recommendation(rec_id: str):
                 docx_bytes = generate_sanctions_recommendations_docx(site_result, complete_text)
                 safe_domain = re.sub(r"[^\w\-]", "_", rec["domain"])
                 suffix = {"owner": "owner", "dev": "dev"}.get(doc_type, "rec")
-                rec_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "recommendations")
-                os.makedirs(rec_dir, exist_ok=True)
-                docx_path = os.path.join(rec_dir, f"sanc_{rec_id}_{safe_domain}_{suffix}.docx")
+                from config import REC_DIR
+                os.makedirs(REC_DIR, exist_ok=True)
+                docx_path = os.path.join(REC_DIR, f"sanc_{rec_id}_{safe_domain}_{suffix}.docx")
                 with open(docx_path, "wb") as f:
                     f.write(docx_bytes)
                 with _recs_lock:

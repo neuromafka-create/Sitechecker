@@ -12,7 +12,10 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.db")
+try:
+    from config import HISTORY_DB_PATH as DB_PATH
+except Exception:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.db")
 _lock = threading.Lock()
 
 # Нормализация risk-строк из всех модулей → ключи сводки

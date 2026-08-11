@@ -55,3 +55,10 @@ Desktop.ini
 
 admin_settings.json
 
+# Desktop build artifacts
+build/
+dist/
+*.spec.bak
+packaging/sitechecker.ico
+playwright-browsers/
+

@@ -8,3 +8,6 @@ playwright>=1.40.0
 openai>=1.0.0
 python-dotenv>=1.0.0
 python-docx>=1.1.0
+# Desktop shell (Windows)
+pywebview>=5.0
+# Build (optional): pyinstaller pillow

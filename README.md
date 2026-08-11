@@ -11,7 +11,10 @@
 | **История** | `/history` | Архив аудитов с выгрузкой отчётов |
 | **Админка** | `/admin` | Тема, лимиты, AI-модель, брендинг |
 
-**Стек:** Python 3.10+ · Flask · BeautifulSoup · Playwright · OpenAI-совместимый API · python-docx
+**Стек:** Python 3.10+ · Flask · BeautifulSoup · Playwright · OpenAI-совместимый API · python-docx  
+**Десктоп (Windows):** pywebview + PyInstaller + Inno Setup · данные в `%APPDATA%\Sitechecker`
+
+**Скачать Windows:** [Releases](https://github.com/neuromafka-create/Sitechecker/releases) — `Sitechecker-Setup-x.y.z.exe`
 
 ---
 
@@ -274,6 +277,38 @@ server {
 ```bash
 pip install gunicorn
 gunicorn -w 2 -b 127.0.0.1:5000 app:app
+```
+
+---
+
+## Windows Desktop
+
+Приложение открывается в **нативном окне** (WebView2), без ручного запуска браузера.
+
+| | |
+|--|--|
+| Данные | `%APPDATA%\Sitechecker\` (history, reports, logs, settings) |
+| Playwright Chromium | скачивается **при первом** запуске «углублённой проверки» в тот же data dir |
+| Установщик | `Sitechecker-Setup-1.0.0.exe` (Inno Setup) |
+
+### Сборка из исходников
+
+```powershell
+.\venv\Scripts\activate
+pip install -r requirements.txt pyinstaller pillow
+# Inno Setup 6: https://jrsoftware.org/isinfo.php
+.\packaging\build_windows.ps1
+```
+
+Артефакты:
+- `dist\Sitechecker\` — portable (onedir)
+- `dist\installer\Sitechecker-Setup-1.0.0.exe` — установщик
+
+Запуск без сборки (dev):
+
+```powershell
+$env:SITECHECKER_DESKTOP=1
+python desktop_app.py
 ```
 
 ---

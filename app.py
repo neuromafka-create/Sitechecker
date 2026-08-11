@@ -28,8 +28,9 @@ def _check_playwright_available() -> bool:
 
 PLAYWRIGHT_AVAILABLE = _check_playwright_available()
 from config import (HOST, LOG_FILE, MAX_FILE_SIZE, MAX_URLS, PORT,
-                    REC_DIR, REPORT_DIR, REPORT_TTL,
-                    SCREENSHOTS_DIR, UPLOAD_DIR, get_ai_config)
+                    REC_DIR, REPORT_DIR, REPORT_TTL, RESOURCE_DIR, DATA_DIR,
+                    SCREENSHOTS_DIR, UPLOAD_DIR, ADMIN_SETTINGS_FILE,
+                    get_ai_config, get_admin_settings_path)
 from report import generate_csv, generate_excel
 from deepseek import stream_recommendations, get_recommendations_sync
 from rec_report import generate_recommendations_docx
@@ -52,7 +53,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(RESOURCE_DIR, "templates"),
+    static_folder=os.path.join(RESOURCE_DIR, "static"),
+)
 app.config["MAX_CONTENT_LENGTH"] = MAX_FILE_SIZE
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
 app.register_blueprint(sanctions_bp)
@@ -260,8 +265,8 @@ def _run_checks(job_id: str, urls: list[str], criteria: dict):
 # ─────────────────────────────────────────────────────────────────────────────
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-me-in-production")
-ADMIN_SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "admin_settings.json")
-LOGO_FILE = os.path.join(os.path.dirname(__file__), "static", "uploaded_logo")
+# ADMIN_SETTINGS_FILE — из config (data dir)
+LOGO_FILE = os.path.join(DATA_DIR, "uploaded_logo")
 
 
 def _load_admin_settings() -> dict:
@@ -282,9 +287,10 @@ def _load_admin_settings() -> dict:
             "hero_sub":     "Проверяем политику ПД, cookie-баннер, согласия, трекеры и иностранные ресурсы.",
         }
     }
-    if os.path.exists(ADMIN_SETTINGS_FILE):
+    path = get_admin_settings_path()
+    if os.path.exists(path):
         try:
-            with open(ADMIN_SETTINGS_FILE, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 saved = json.load(f)
                 defaults.update(saved)
         except Exception:

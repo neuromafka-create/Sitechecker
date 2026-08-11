@@ -337,6 +337,19 @@ async def _pw_check_async(url: str, screenshots_dir: str) -> dict:
     }
 
     try:
+        # Chromium в data dir: при первом запуске скачивается автоматически
+        try:
+            from playwright_setup import ensure_playwright_browsers
+            from config import PLAYWRIGHT_BROWSERS_DIR
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_DIR
+            ok, msg = ensure_playwright_browsers()
+            if not ok:
+                result["pw_error"] = f"Не удалось установить Chromium: {msg}"
+                result["playwright_used"] = False
+                return result
+        except Exception as e:
+            logger.warning("Playwright browser setup: %s", e)
+
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=PW_HEADLESS)
             context = await browser.new_context(

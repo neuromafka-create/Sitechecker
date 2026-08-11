@@ -16,11 +16,12 @@ from config import (
     DEEPSEEK_MAX_TOKENS,
     DEEPSEEK_TEMPERATURE,
     RUSSIAN_ANALYTICS,
+    RESOURCE_DIR,
 )
 
 logger = logging.getLogger(__name__)
 
-PROMPTS_DIR = Path(__file__).parent / "prompts"
+PROMPTS_DIR = Path(RESOURCE_DIR) / "prompts"
 
 
 # ── Вспомогательные загрузчики ────────────────────────────────────────────────

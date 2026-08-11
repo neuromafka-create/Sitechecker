@@ -1,19 +1,63 @@
-   # config.py — все настройки приложения
+# config.py — все настройки приложения
 import os
 import re
+import sys
 from pathlib import Path
 
-# Загружаем .env если установлен python-dotenv
+
+def _is_frozen() -> bool:
+    """True, если запущено из PyInstaller / Nuitka-бандла."""
+    return bool(getattr(sys, "frozen", False)) or hasattr(sys, "_MEIPASS")
+
+
+def get_resource_dir() -> str:
+    """Каталог read-only ресурсов (код, templates, static, prompts)."""
+    if getattr(sys, "_MEIPASS", None):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_data_dir() -> str:
+    """
+    Writable data: history, reports, logs, settings, Playwright browsers.
+    - SITECHECKER_DATA_DIR — явный override
+    - frozen / SITECHECKER_DESKTOP=1 → %APPDATA%\\Sitechecker (Windows)
+    - иначе — каталог проекта (dev)
+    """
+    override = os.getenv("SITECHECKER_DATA_DIR", "").strip()
+    if override:
+        return os.path.abspath(override)
+
+    desktop = os.getenv("SITECHECKER_DESKTOP", "").strip() in ("1", "true", "yes")
+    if _is_frozen() or desktop:
+        if sys.platform == "win32":
+            base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+            return os.path.join(base, "Sitechecker")
+        return str(Path.home() / ".sitechecker")
+
+    return get_resource_dir()
+
+
+RESOURCE_DIR = get_resource_dir()
+DATA_DIR = get_data_dir()
+BASE_DIR = DATA_DIR  # writable «корень» для логов/отчётов (совместимость)
+
+# Загружаем .env: сначала data dir (десктоп), затем каталог проекта
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent / ".env")
+    load_dotenv(Path(DATA_DIR) / ".env")
+    if RESOURCE_DIR != DATA_DIR:
+        load_dotenv(Path(RESOURCE_DIR) / ".env")
 except ImportError:
-    pass  # python-dotenv не установлен — переменные берутся из окружения
+    pass
 
 # ── Сервер ────────────────────────────────────────────────────────────────────
 # Chrome/Chromium блокируют порт 6000 (ERR_UNSAFE_PORT, X11).
-# Ближайший безопасный порт — 6001. Переопределение: PORT=8080 python app.py
-HOST = os.getenv("HOST", "0.0.0.0")
+# Десктоп: 127.0.0.1; сервер: 0.0.0.0. Порт: PORT=8080 python app.py
+_default_host = "127.0.0.1" if (
+    _is_frozen() or os.getenv("SITECHECKER_DESKTOP", "").strip() in ("1", "true", "yes")
+) else "0.0.0.0"
+HOST = os.getenv("HOST", _default_host)
 PORT = int(os.getenv("PORT", "6001"))
 
 # ── Краулинг: страницы, которые не проверяем ─────────────────────────────────
@@ -341,14 +385,39 @@ DEEPSEEK_TEMPERATURE = 0.3   # Ниже = более строгий/юридич
 # Параметры читаются из admin_settings.json с фолбэком на env-переменные.
 # admin_settings.json обновляется из админ-панели (вкладка «AI модель»).
 import json as _json
-_ADMIN_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "admin_settings.json")
+
+# ── Пути (data writable / resources read-only) ───────────────────────────────
+UPLOAD_DIR      = os.path.join(DATA_DIR, "uploads")
+REPORT_DIR      = os.path.join(DATA_DIR, "reports")
+REC_DIR         = os.path.join(DATA_DIR, "recommendations")
+SCREENSHOTS_DIR = os.path.join(DATA_DIR, "screenshots")
+LOG_FILE        = os.path.join(DATA_DIR, "errors.log")
+HISTORY_DB_PATH = os.path.join(DATA_DIR, "history.db")
+ADMIN_SETTINGS_FILE = os.path.join(DATA_DIR, "admin_settings.json")
+PLAYWRIGHT_BROWSERS_DIR = os.path.join(DATA_DIR, "playwright-browsers")
+REPORT_TTL      = 3600  # 1 час
+
+# Фолбэк: settings рядом с проектом (dev), если в data dir ещё нет
+_ADMIN_SETTINGS_FILE = ADMIN_SETTINGS_FILE
+_DEV_ADMIN_SETTINGS = os.path.join(RESOURCE_DIR, "admin_settings.json")
+
+
+def get_admin_settings_path() -> str:
+    """Путь к admin_settings.json (data dir; иначе dev-копия в resource)."""
+    if os.path.exists(ADMIN_SETTINGS_FILE):
+        return ADMIN_SETTINGS_FILE
+    if os.path.exists(_DEV_ADMIN_SETTINGS) and RESOURCE_DIR != DATA_DIR:
+        return _DEV_ADMIN_SETTINGS
+    return ADMIN_SETTINGS_FILE
+
 
 def get_ai_config() -> dict:
     """Возвращает {api_key, base_url, model} — из admin_settings.json или env."""
     api_key = base_url = model = ""
     try:
-        if os.path.exists(_ADMIN_SETTINGS_FILE):
-            with open(_ADMIN_SETTINGS_FILE, "r", encoding="utf-8") as _f:
+        path = get_admin_settings_path()
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as _f:
                 _s = _json.load(_f)
             _ai = _s.get("ai_model", {})
             api_key  = _ai.get("api_key", "")
@@ -367,16 +436,8 @@ HUBRIS_API_KEY  = os.getenv("HUBRIS_API_KEY")
 HUBRIS_BASE_URL = os.getenv("HUBRIS_BASE_URL")
 HUBRIS_MODEL    = os.getenv("HUBRIS_MODEL")
 
-# ── Пути ──────────────────────────────────────────────────────────────────────
-BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR      = os.path.join(BASE_DIR, "uploads")
-REPORT_DIR      = os.path.join(BASE_DIR, "reports")
-REC_DIR         = os.path.join(BASE_DIR, "recommendations")  # .docx рекомендации
-SCREENSHOTS_DIR = os.path.join(BASE_DIR, "screenshots")
-LOG_FILE        = os.path.join(BASE_DIR, "errors.log")
-REPORT_TTL      = 3600  # 1 час
+for _d in (DATA_DIR, UPLOAD_DIR, REPORT_DIR, REC_DIR, SCREENSHOTS_DIR, PLAYWRIGHT_BROWSERS_DIR):
+    os.makedirs(_d, exist_ok=True)
 
-os.makedirs(UPLOAD_DIR,      exist_ok=True)
-os.makedirs(REPORT_DIR,      exist_ok=True)
-os.makedirs(REC_DIR,         exist_ok=True)
-os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+# Playwright: браузеры в data dir (скачиваются при первом использовании)
+os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", PLAYWRIGHT_BROWSERS_DIR)

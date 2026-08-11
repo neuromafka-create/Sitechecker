@@ -345,9 +345,9 @@ def stream_recommendation(rec_id: str):
                 from auth.rec_report import generate_auth_recommendations_docx
                 docx_bytes = generate_auth_recommendations_docx(site_result, complete_text)
                 safe_domain = re.sub(r"[^\w\-]", "_", rec["domain"])
-                rec_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "recommendations")
-                os.makedirs(rec_dir, exist_ok=True)
-                docx_path = os.path.join(rec_dir, f"auth_{rec_id}_{safe_domain}.docx")
+                from config import REC_DIR
+                os.makedirs(REC_DIR, exist_ok=True)
+                docx_path = os.path.join(REC_DIR, f"auth_{rec_id}_{safe_domain}.docx")
                 with open(docx_path, "wb") as f:
                     f.write(docx_bytes)
                 with _recs_lock:
