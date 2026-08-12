@@ -3,7 +3,7 @@
 ;   iscc packaging\sitechecker.iss
 
 #define MyAppName "Sitechecker"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "neuromafka-create"
 #define MyAppURL "https://github.com/neuromafka-create/Sitechecker"
 #define MyAppExeName "Sitechecker.exe"
