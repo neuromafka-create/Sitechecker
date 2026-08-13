@@ -460,7 +460,7 @@
 <!-- ══ NAV ════════════════════════════════════════════════════ -->
 <nav>
   <div style="width:90%;max-width:1280px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between">
-    <div class="nav-logo">
+    <a class="nav-logo" href="/" style="text-decoration:none;color:inherit" title="К проверке">
       <div class="nav-logo-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00c2de" stroke-width="2">
           <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
@@ -471,10 +471,11 @@
         <div class="nav-logo-text">152-ФЗ ПРОВЕРКА</div>
         <div class="nav-logo-sub">Admin Panel</div>
       </div>
-    </div>
+    </a>
 
     <div class="nav-links">
-      <a class="nav-link" href="/" target="_blank">Открыть сайт ↗</a>
+      {# Без target=_blank: в десктопе (WebView) новая вкладка уходит во внешний браузер на 127.0.0.1 #}
+      <a class="nav-link" href="/">← К проверке</a>
     </div>
 
     <div class="nav-actions">

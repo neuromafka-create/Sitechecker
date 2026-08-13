@@ -759,8 +759,58 @@ body::before {
   font-family: var(--f-body); font-size: .72rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: .06em;
   cursor: pointer; transition: background .15s;
+  text-decoration: none;
 }
 .open-link-btn:hover { background: var(--c-cyan-soft); }
+
+/* Просмотр скриншота поверх экрана (без ухода со страницы проверки) */
+.ss-lightbox {
+  position: fixed; inset: 0; z-index: 100000;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .82);
+  padding: 24px;
+  box-sizing: border-box;
+}
+.ss-lightbox.open { display: flex; }
+.ss-lightbox-inner {
+  position: relative;
+  max-width: min(1100px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+.ss-lightbox-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.ss-lightbox-title {
+  font-size: .78rem; font-weight: 600; color: #e5e7eb;
+  letter-spacing: .04em; text-transform: uppercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ss-lightbox-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.ss-lightbox-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255,255,255,.25); border-radius: 6px;
+  background: rgba(255,255,255,.08); color: #f3f4f6;
+  font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; cursor: pointer;
+  text-decoration: none;
+}
+.ss-lightbox-btn:hover { background: rgba(255,255,255,.16); border-color: rgba(0,194,222,.6); color: #fff; }
+.ss-lightbox-btn.primary { border-color: rgba(0,194,222,.55); color: #00c2de; }
+.ss-lightbox-img-wrap {
+  flex: 1; min-height: 0; overflow: auto;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 8px;
+  background: #0c0d0f;
+  max-height: calc(92vh - 56px);
+}
+.ss-lightbox-img-wrap img {
+  display: block; max-width: 100%; height: auto; margin: 0 auto;
+}
 
 /* ═══════════════════════════════════════════════════
    AI BAR

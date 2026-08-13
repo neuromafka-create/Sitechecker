@@ -289,7 +289,7 @@ gunicorn -w 2 -b 127.0.0.1:5000 app:app
 |--|--|
 | Данные | `%APPDATA%\Sitechecker\` (history, reports, logs, settings) |
 | Playwright Chromium | скачивается **при первом** запуске «углублённой проверки» в тот же data dir |
-| Установщик | `Sitechecker-Setup-1.0.0.exe` (Inno Setup) |
+| Установщик | `Sitechecker-Setup-1.0.6.exe` (Inno Setup) · [Releases](https://github.com/neuromafka-create/Sitechecker/releases) |
 
 ### Сборка из исходников
 
@@ -302,7 +302,7 @@ pip install -r requirements.txt pyinstaller pillow
 
 Артефакты:
 - `dist\Sitechecker\` — portable (onedir)
-- `dist\installer\Sitechecker-Setup-1.0.0.exe` — установщик
+- `dist\installer\Sitechecker-Setup-1.0.6.exe` — установщик
 
 Запуск без сборки (dev):
 

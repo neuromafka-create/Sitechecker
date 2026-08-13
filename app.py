@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -214,10 +215,14 @@ def _run_checks(job_id: str, urls: list[str], criteria: dict):
         try:
             result = check_site_multipage(url, criteria, max_pages=int(_admin_settings.get("max_pages", 4)))
         except Exception as e:
-            logger.error("[%s] Unhandled error for %s: %s", job_id, url, e)
+            err_safe = str(e).encode("ascii", "replace").decode("ascii")[:500]
+            try:
+                logger.error("[%s] Unhandled error for %s: %s", job_id, url, err_safe)
+            except Exception:
+                pass
             result = {
                 "domain": url, "url": url, "accessible": False,
-                "http_status": 0, "error": str(e),
+                "http_status": 0, "error": err_safe,
                 "policy_found": False, "policy_url": "", "policy_status": 0,
                 "policy_text_len": 0, "analytics_systems": [],
                 "has_cookie_banner": False, "pd_forms_count": 0,
@@ -231,39 +236,47 @@ def _run_checks(job_id: str, urls: list[str], criteria: dict):
         with jobs_lock:
             jobs[job_id]["results"] = results
 
-    # Генерация отчётов
+    # Генерация отчётов — всегда помечаем done, даже при сбое
     xlsx_path = csv_path = None
     try:
-        xlsx_bytes = generate_excel(results)
-        xlsx_path = os.path.join(REPORT_DIR, f"{job_id}.xlsx")
-        with open(xlsx_path, "wb") as f:
-            f.write(xlsx_bytes)
+        try:
+            xlsx_bytes = generate_excel(results)
+            xlsx_path = os.path.join(REPORT_DIR, f"{job_id}.xlsx")
+            with open(xlsx_path, "wb") as f:
+                f.write(xlsx_bytes)
 
-        csv_bytes = generate_csv(results)
-        csv_path = os.path.join(REPORT_DIR, f"{job_id}.csv")
-        with open(csv_path, "wb") as f:
-            f.write(csv_bytes)
-    except Exception as e:
-        logger.error("[%s] Report generation error: %s", job_id, e)
+            csv_bytes = generate_csv(results)
+            csv_path = os.path.join(REPORT_DIR, f"{job_id}.csv")
+            with open(csv_path, "wb") as f:
+                f.write(csv_bytes)
+        except Exception as e:
+            logger.error("[%s] Report generation error: %s", job_id,
+                         str(e).encode("ascii", "replace").decode("ascii"))
 
-    try:
-        save_scan("main", job_id, results, xlsx_path, csv_path)
-    except Exception as e:
-        logger.error("[%s] History save error: %s", job_id, e)
+        try:
+            save_scan("main", job_id, results, xlsx_path, csv_path)
+        except Exception as e:
+            logger.error("[%s] History save error: %s", job_id,
+                         str(e).encode("ascii", "replace").decode("ascii"))
+    finally:
+        with jobs_lock:
+            jobs[job_id]["status"] = "done"
+            jobs[job_id]["progress"] = len(urls)
+            jobs[job_id]["current"] = ""
+            jobs[job_id]["results"] = results
 
-    with jobs_lock:
-        jobs[job_id]["status"] = "done"
-        jobs[job_id]["progress"] = len(urls)
-        jobs[job_id]["current"] = ""
-
-    _cleanup_old_jobs()
-    logger.info("[%s] Finished. Total: %d sites", job_id, len(urls))
+        try:
+            _cleanup_old_jobs()
+        except Exception:
+            pass
+        logger.info("[%s] Finished. Total: %d sites", job_id, len(urls))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Административная панель
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Legacy fallback, если пароль ещё не задан через UI (только .env)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-me-in-production")
 # ADMIN_SETTINGS_FILE — из config (data dir)
 LOGO_FILE = os.path.join(DATA_DIR, "uploaded_logo")
@@ -278,6 +291,7 @@ def _load_admin_settings() -> dict:
         "show_ai":        True,
         "max_urls":       50,
         "max_pages":      4,
+        "admin_password_hash": "",  # пусто = первый запуск, нужно задать пароль
         "branding": {
             "logo_name":    "152-ФЗ ПРОВЕРКА",
             "logo_sub":     "Audit & Compliance",
@@ -300,6 +314,7 @@ def _load_admin_settings() -> dict:
 
 def _save_admin_settings(settings: dict):
     try:
+        os.makedirs(os.path.dirname(ADMIN_SETTINGS_FILE) or ".", exist_ok=True)
         with open(ADMIN_SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -308,6 +323,30 @@ def _save_admin_settings(settings: dict):
 
 _admin_settings: dict = _load_admin_settings()
 app.config["_admin_settings"] = _admin_settings
+
+
+def _admin_password_configured() -> bool:
+    """Пароль уже задан в UI (хеш в admin_settings)."""
+    return bool((_admin_settings.get("admin_password_hash") or "").strip())
+
+
+def _set_admin_password(plain: str) -> None:
+    from werkzeug.security import generate_password_hash
+    _admin_settings["admin_password_hash"] = generate_password_hash(plain)
+    _save_admin_settings(_admin_settings)
+
+
+def _verify_admin_password(plain: str) -> bool:
+    """Проверка пароля: хеш из settings, иначе legacy ADMIN_PASSWORD из .env."""
+    h = (_admin_settings.get("admin_password_hash") or "").strip()
+    if h:
+        from werkzeug.security import check_password_hash
+        try:
+            return check_password_hash(h, plain)
+        except Exception:
+            return False
+    # Совместимость: старые установки с ADMIN_PASSWORD в .env / дефолтом
+    return plain == ADMIN_PASSWORD and bool(plain)
 
 
 def admin_required(f):
@@ -363,14 +402,81 @@ def index():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    """
+    Первый запуск (нет admin_password_hash) → форма установки пароля.
+    Иначе → обычный вход.
+    Legacy: если хеша нет, принимается ADMIN_PASSWORD из .env
+    (в т.ч. change-me-in-production) — после входа лучше задать новый пароль.
+    """
     error = None
+    needs_setup = not _admin_password_configured()
+    # На десктопе без хеша — только setup (не путать с «неверный пароль»)
+    force_setup = needs_setup and (
+        os.environ.get("SITECHECKER_DESKTOP", "").strip() in ("1", "true", "yes")
+        or getattr(sys, "frozen", False)
+    )
+
     if request.method == "POST":
-        pw = request.form.get("password", "")
-        if pw == ADMIN_PASSWORD:
-            session["admin_logged_in"] = True
-            return redirect("/admin")
-        error = "Неверный пароль. Попробуйте ещё раз."
-    return render_template("admin_login.html", error=error)
+        action = request.form.get("action", "login")
+        if action == "setup" or (force_setup and needs_setup):
+            pw = request.form.get("password", "")
+            pw2 = request.form.get("password2", "")
+            if len(pw) < 6:
+                error = "Пароль слишком короткий (минимум 6 символов)."
+            elif pw != pw2:
+                error = "Пароли не совпадают."
+            else:
+                try:
+                    _set_admin_password(pw)
+                    session["admin_logged_in"] = True
+                    logger.info("Admin password set (first-run setup)")
+                    return redirect("/admin")
+                except Exception as e:
+                    error = f"Не удалось сохранить пароль: {e}"
+            needs_setup = True
+        else:
+            pw = request.form.get("password", "")
+            if _verify_admin_password(pw):
+                # Если входили по legacy .env — предложим сохранить как UI-пароль
+                if not _admin_password_configured() and pw:
+                    try:
+                        _set_admin_password(pw)
+                    except Exception:
+                        pass
+                session["admin_logged_in"] = True
+                return redirect("/admin")
+            error = "Неверный пароль. Попробуйте ещё раз."
+            if needs_setup and not force_setup:
+                error += (
+                    " Если вы ещё не задавали пароль в этом приложении — "
+                    "используйте значение ADMIN_PASSWORD из .env "
+                    "или дефолт change-me-in-production, либо задайте новый ниже."
+                )
+
+    return render_template(
+        "admin_login.html",
+        error=error,
+        needs_setup=needs_setup or force_setup,
+        force_setup=force_setup,
+    )
+
+
+@app.route("/admin/change-password", methods=["POST"])
+@admin_required
+def admin_change_password():
+    """Смена пароля из панели (JSON)."""
+    data = request.get_json(silent=True) or {}
+    current = data.get("current", "")
+    new_pw = data.get("new_password", "")
+    new2 = data.get("new_password2", "")
+    if not _verify_admin_password(current) and _admin_password_configured():
+        return jsonify({"error": "Текущий пароль неверен"}), 400
+    if len(new_pw) < 6:
+        return jsonify({"error": "Новый пароль: минимум 6 символов"}), 400
+    if new_pw != new2:
+        return jsonify({"error": "Пароли не совпадают"}), 400
+    _set_admin_password(new_pw)
+    return jsonify({"ok": True})
 
 
 @app.route("/admin/logout")
@@ -425,6 +531,8 @@ def admin_save():
         _admin_settings.setdefault("ai_model", {}).update(value)
     elif setting == "all_settings" and isinstance(value, dict):
         for k, v in value.items():
+            if k == "admin_password_hash":
+                continue  # пароль только через setup / change-password
             # Числовые настройки всегда int
             if k in ("max_urls", "max_pages"):
                 try:
@@ -433,6 +541,8 @@ def admin_save():
                     pass
             _admin_settings[k] = v
     else:
+        if setting == "admin_password_hash":
+            return jsonify({"ok": False, "error": "use change-password"}), 400
         # Одиночное сохранение числовых настроек
         if setting in ("max_urls", "max_pages"):
             try:

@@ -20,6 +20,8 @@ from bs4 import BeautifulSoup
 
 from config import (
     ANALYTICS_SIGNATURES,
+    CONSENT_DOC_HREF_HINTS,
+    CONSENT_DOC_TEXT_HINTS,
     CONSENT_MIXED_KEYWORDS,
     CONSENT_REQUISITES,
     COOKIE_BANNER_KEYWORDS,
@@ -351,7 +353,7 @@ async def _pw_check_async(url: str, screenshots_dir: str) -> dict:
             logger.warning("Playwright browser setup: %s", e)
 
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=PW_HEADLESS)
+            browser = await pw.chromium.launch(**_pw_launch_kwargs())
             context = await browser.new_context(
                 locale=PW_LOCALE,
                 timezone_id=PW_TIMEZONE,
@@ -502,11 +504,27 @@ async def _pw_check_async(url: str, screenshots_dir: str) -> dict:
             await browser.close()
 
     except Exception as e:
-        result["pw_error"]        = str(e)[:300]
+        # str(e) Playwright может содержать «красивые» unicode-рамки → падает
+        # StreamHandler(charmap) на Windows и рвёт весь job-поток.
+        err_txt = str(e).encode("ascii", "replace").decode("ascii")[:400]
+        result["pw_error"]        = err_txt
         result["playwright_used"] = False
-        logger.error("PW error %s: %s", url, e)
+        logger.error("PW error %s: %s", url, err_txt)
 
     return result
+
+
+def _pw_launch_kwargs() -> dict:
+    """Аргументы chromium.launch с executable_path из data dir, если есть."""
+    kwargs = {"headless": PW_HEADLESS}
+    try:
+        from playwright_setup import _find_browser_executable
+        exe = _find_browser_executable()
+        if exe:
+            kwargs["executable_path"] = exe
+    except Exception:
+        pass
+    return kwargs
 
 
 def playwright_check(url: str) -> dict:
@@ -553,6 +571,7 @@ def check_policy(session: requests.Session, base_url: str, html: str) -> dict:
         "policy_url":       "",
         "policy_status":    0,
         "policy_text_len":  0,
+        "policy_text":      "",   # полный текст — для check_consent
         "policy_is_pdf":    False,
         "policy_in_footer": False,
         "sections_found":   [],
@@ -649,6 +668,7 @@ def check_policy(session: requests.Session, base_url: str, html: str) -> dict:
         "policy_url":       final_url,
         "policy_status":    status,
         "policy_text_len":  len(text),
+        "policy_text":      text,
         "sections_found":   sections_found,
         "sections_missing": sections_missing,
         "operator_found":   _has_any(text, OPERATOR_KEYWORDS),
@@ -784,9 +804,11 @@ def _analyse_container(el, html: str, soup: BeautifulSoup) -> dict | None:
     text_cons   = _has_text_consent(ctx)
 
     consent_cb = checkbox_checked = checkbox_newtab = checkbox_mixed = False
+    consent_doc_urls: list[str] = []
     for cb in el.find_all("input", {"type": "checkbox"}):
         cb_id      = cb.get("id", "")
         label_text = ""
+        lbl = None
         if cb_id:
             lbl = soup.find("label", {"for": cb_id})
             if lbl:
@@ -821,12 +843,31 @@ def _analyse_container(el, html: str, soup: BeautifulSoup) -> dict | None:
                 checkbox_checked = True
             if _has_any(label_text, CONSENT_MIXED_KEYWORDS):
                 checkbox_mixed = True
-            if cb_id:
-                lt = soup.find("label", {"for": cb_id})
-                if lt:
-                    for a in lt.find_all("a", href=True):
-                        if a.get("target") == "_blank":
-                            checkbox_newtab = True
+            # Ссылки на полное согласие / политику рядом с чекбоксом
+            link_roots = []
+            if lbl:
+                link_roots.append(lbl)
+            if cb.parent:
+                link_roots.append(cb.parent)
+                # на уровень выше (Tilda: label внутри div рядом с ссылками)
+                if cb.parent.parent:
+                    link_roots.append(cb.parent.parent)
+            seen_href = set()
+            for root in link_roots:
+                for a in root.find_all("a", href=True):
+                    href = (a.get("href") or "").strip()
+                    if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+                        continue
+                    a_text = (a.get_text(strip=True) or "").lower()
+                    href_l = href.lower()
+                    if any(h in href_l for h in CONSENT_DOC_HREF_HINTS) or any(
+                        h in a_text for h in CONSENT_DOC_TEXT_HINTS
+                    ):
+                        if href not in seen_href:
+                            seen_href.add(href)
+                            consent_doc_urls.append(href)
+                    if a.get("target") == "_blank":
+                        checkbox_newtab = True
             break
 
     return {
@@ -839,6 +880,7 @@ def _analyse_container(el, html: str, soup: BeautifulSoup) -> dict | None:
         "checkbox_checked":     checkbox_checked,
         "checkbox_newtab":      checkbox_newtab,
         "checkbox_mixed":       checkbox_mixed,
+        "consent_doc_urls":     consent_doc_urls,
         "is_formless":          el.name != "form",
         # Идентификаторы формы для отчёта — нужны для поиска в коде
         "form_id":              (el.get("id")     or "").strip(),
@@ -925,7 +967,82 @@ def check_forms(html: str) -> dict:
 # Критерий 4: Согласие на обработку ПД
 # ═════════════════════════════════════════════════════════════════════════════
 
-def check_consent(html: str, pd_forms: list) -> dict:
+def _is_consent_doc_url(url: str, link_text: str = "") -> bool:
+    """Похоже ли href/текст ссылки на документ согласия или политики ПД."""
+    u = (url or "").lower()
+    t = (link_text or "").lower()
+    if any(h in u for h in CONSENT_DOC_HREF_HINTS):
+        return True
+    if any(h in t for h in CONSENT_DOC_TEXT_HINTS):
+        return True
+    return False
+
+
+def _collect_consent_doc_urls(pd_forms: list, base_url: str = "") -> list[str]:
+    """Уникальные absolute URL документов согласия/политики со всех форм."""
+    raw: list[str] = []
+    for form in pd_forms:
+        for href in form.get("consent_doc_urls") or []:
+            raw.append(href)
+    # absolute + same-site
+    out: list[str] = []
+    seen = set()
+    base_domain = ""
+    if base_url:
+        try:
+            base_domain = urllib.parse.urlparse(base_url).netloc.lower().removeprefix("www.")
+        except Exception:
+            base_domain = ""
+    for href in raw:
+        full = urllib.parse.urljoin(base_url or "https://local.invalid/", href)
+        full = full.split("#")[0]
+        try:
+            p = urllib.parse.urlparse(full)
+            if p.scheme not in ("http", "https"):
+                continue
+            host = p.netloc.lower().removeprefix("www.")
+            if base_domain and host and host != base_domain:
+                continue  # чужой домен не ходим
+        except Exception:
+            continue
+        if full not in seen:
+            seen.add(full)
+            out.append(full)
+    return out
+
+
+def _fetch_consent_docs_text(session: requests.Session | None,
+                             urls: list[str],
+                             max_docs: int = 3) -> tuple[str, list[str]]:
+    """Скачивает до max_docs страниц согласия/политики, возвращает (text, checked_urls)."""
+    if not urls:
+        return "", []
+    sess = session or make_session()
+    chunks: list[str] = []
+    checked: list[str] = []
+    for url in urls[:max_docs]:
+        try:
+            status, html, final = fetch_page(sess, url)
+            if status == 200 and html:
+                # текст страницы важнее сырого HTML-атрибутов
+                try:
+                    soup = BeautifulSoup(html, "lxml")
+                    text = soup.get_text(" ", strip=True)
+                except Exception:
+                    text = html
+                chunks.append(text)
+                checked.append(final or url)
+                logger.info("Consent doc loaded: %s (%d chars)", final or url, len(text))
+        except Exception as e:
+            logger.debug("Consent doc fetch failed %s: %s", url, e)
+    return "\n".join(chunks), checked
+
+
+def check_consent(html: str, pd_forms: list,
+                  session: requests.Session | None = None,
+                  base_url: str = "",
+                  policy_text: str = "",
+                  policy_url: str = "") -> dict:
     """
     Уровни согласия:
       полное             — чекбокс + 4+ реквизита, без нарушений
@@ -934,32 +1051,30 @@ def check_consent(html: str, pd_forms: list) -> dict:
       нарушения          — чекбокс с нарушениями
       отсутствует        — нет ни чекбокса, ни текста
 
-    ВАЖНО: анализ чекбоксов берётся СТРОГО из pd_forms (данные _analyse_container),
-    а не из повторного парсинга HTML. Это исключает ложные срабатывания когда:
-    - большой ctx захватывает чекбокс из соседней формы/popup
-    - чекбокс найден в <form>, которая не является ПД-формой
-    - атрибут checked="false" ошибочно трактуется как «отмечен»
+    Реквизиты ищутся:
+      1) в ctx_text формы (подпись чекбокса);
+      2) в документах по ссылкам у чекбокса (/soglasie, /politika, …);
+      3) в тексте политики — только если чекбокс явно ссылается на политику.
+
+    ВАЖНО: анализ чекбоксов берётся СТРОГО из pd_forms (данные _analyse_container).
     """
     if not pd_forms:
         return {"consent_level": "не применимо", "missing_requisites": [],
                 "has_checkbox": False, "has_text_consent": False,
-                "found_requisites": [], "violations": []}
+                "found_requisites": [], "violations": [],
+                "consent_docs_checked": [], "requisites_from_docs": False}
 
     has_text_cons = any(f.get("text_consent") for f in pd_forms)
     found_req: set = set()
     violations: list = []
     has_checkbox = False
+    links_to_policy = False
 
     for form in pd_forms:
         # ── Чекбокс и его нарушения ───────────────────────────────────────────
-        # has_consent_checkbox и checkbox_checked уже вычислены в _analyse_container
-        # строго внутри контейнера формы — без риска захватить соседние элементы.
         if form.get("has_consent_checkbox"):
             has_checkbox = True
 
-            # Проверка checked: атрибут checked="" или checked (boolean) = True,
-            # но checked="false" / checked="0" / checked="no" = НЕ отмечен.
-            # _analyse_container сохраняет результат в checkbox_checked (bool).
             if form.get("checkbox_checked"):
                 viol = "чекбокс предустановлен (checked по умолчанию)"
                 if viol not in violations:
@@ -970,13 +1085,48 @@ def check_consent(html: str, pd_forms: list) -> dict:
                 if viol not in violations:
                     violations.append(viol)
 
+            for href in form.get("consent_doc_urls") or []:
+                hl = href.lower()
+                if any(x in hl for x in ("polit", "privacy", "policy", "confiden")):
+                    links_to_policy = True
+
         # ── Реквизиты из контекста формы ─────────────────────────────────────
-        # Берём ctx из pd_form если он сохранён; иначе пропускаем.
         ctx_low = form.get("ctx_text", "").lower()
         if ctx_low:
             for req, kws in CONSENT_REQUISITES.items():
                 if any(kw in ctx_low for kw in kws):
                     found_req.add(req)
+
+    # ── Связанные документы согласия / политики ───────────────────────────────
+    doc_urls = _collect_consent_doc_urls(pd_forms, base_url=base_url or "")
+    # Если есть policy_url с формы и он ещё не в списке — добавим при links_to_policy
+    if policy_url and links_to_policy:
+        pu = policy_url.split("#")[0]
+        if pu not in doc_urls:
+            doc_urls.append(pu)
+
+    docs_text, docs_checked = _fetch_consent_docs_text(session, doc_urls)
+    requisites_from_docs = False
+    if docs_text:
+        docs_low = docs_text.lower()
+        before = set(found_req)
+        for req, kws in CONSENT_REQUISITES.items():
+            if any(kw in docs_low for kw in kws):
+                found_req.add(req)
+        if found_req - before:
+            requisites_from_docs = True
+
+    # Политика (уже загружена в check_site) — только если чекбокс ссылается на неё
+    if policy_text and links_to_policy:
+        pol_low = policy_text.lower()
+        before = set(found_req)
+        for req, kws in CONSENT_REQUISITES.items():
+            if any(kw in pol_low for kw in kws):
+                found_req.add(req)
+        if found_req - before:
+            requisites_from_docs = True
+        if policy_url and policy_url not in docs_checked:
+            docs_checked.append(policy_url)
 
     missing = [r for r in CONSENT_REQUISITES if r not in found_req]
 
@@ -996,12 +1146,14 @@ def check_consent(html: str, pd_forms: list) -> dict:
         level = "отсутствует"
 
     return {
-        "consent_level":      level,
-        "has_checkbox":       has_checkbox,
-        "has_text_consent":   has_text_cons,
-        "found_requisites":   list(found_req),
-        "missing_requisites": missing,
-        "violations":         violations,
+        "consent_level":         level,
+        "has_checkbox":          has_checkbox,
+        "has_text_consent":      has_text_cons,
+        "found_requisites":      list(found_req),
+        "missing_requisites":    missing,
+        "violations":            violations,
+        "consent_docs_checked":  docs_checked,
+        "requisites_from_docs":  requisites_from_docs,
     }
 
 
@@ -1398,11 +1550,21 @@ def check_site(url: str, criteria: dict | None = None,
         "has_checkbox": False, "found_requisites": [], "violations": [],
     }
     if criteria.get("check_consent") and forms["pd_forms_count"] > 0:
-        consent = check_consent(html, forms["pd_forms"])
+        consent = check_consent(
+            html,
+            forms["pd_forms"],
+            session=session,
+            base_url=final_url,
+            policy_text=policy.get("policy_text", ""),
+            policy_url=policy.get("policy_url", ""),
+        )
         result.update({
-            "consent_level":      consent["consent_level"],
-            "missing_requisites": consent["missing_requisites"],
-            "consent_violations": consent["violations"],
+            "consent_level":         consent["consent_level"],
+            "missing_requisites":    consent["missing_requisites"],
+            "consent_violations":    consent["violations"],
+            "found_requisites":      consent.get("found_requisites", []),
+            "consent_docs_checked":  consent.get("consent_docs_checked", []),
+            "requisites_from_docs":  consent.get("requisites_from_docs", False),
         })
 
     # ── Оценка риска ──────────────────────────────────────────────────────────
@@ -1664,14 +1826,27 @@ def _merge_results(base_result: dict, page_results: list[dict]) -> dict:
     if unique_forms:
         # html для пересчёта согласия — берём из base_result (там pw_html если был PW)
         _html_for_consent = base_result.get("_html_snapshot", "")
-        consent_recalc = check_consent(_html_for_consent, unique_forms)
-        merged["consent_level"]      = consent_recalc["consent_level"]
-        merged["consent_violations"] = consent_recalc["violations"]
-        merged["missing_requisites"] = consent_recalc["missing_requisites"]
+        _base_url = merged.get("url") or base_result.get("url", "")
+        _policy_url = merged.get("policy_url") or base_result.get("policy_url", "")
+        consent_recalc = check_consent(
+            _html_for_consent,
+            unique_forms,
+            session=make_session(),
+            base_url=_base_url,
+            policy_text="",  # документы по ссылкам загрузятся в check_consent
+            policy_url=_policy_url,
+        )
+        merged["consent_level"]        = consent_recalc["consent_level"]
+        merged["consent_violations"]   = consent_recalc["violations"]
+        merged["missing_requisites"]   = consent_recalc["missing_requisites"]
+        merged["found_requisites"]     = consent_recalc.get("found_requisites", [])
+        merged["consent_docs_checked"] = consent_recalc.get("consent_docs_checked", [])
+        merged["requisites_from_docs"] = consent_recalc.get("requisites_from_docs", False)
     else:
         merged["consent_level"]      = "не применимо"
         merged["consent_violations"] = []
         merged["missing_requisites"] = []
+        merged["found_requisites"]   = []
 
     # ── Скриншоты: собираем со всех страниц ──────────────────────────────────
     screenshot_files = []
@@ -1721,7 +1896,7 @@ def _pw_get_rendered_html(url: str) -> str:
     async def _do_render():
         try:
             async with async_playwright() as pw:
-                browser = await pw.chromium.launch(headless=PW_HEADLESS)
+                browser = await pw.chromium.launch(**_pw_launch_kwargs())
                 context = await browser.new_context(
                     locale=PW_LOCALE, timezone_id=PW_TIMEZONE
                 )
@@ -1782,7 +1957,7 @@ def _pw_screenshot_only(url: str, screenshots_dir: str) -> str:
     async def _do_screenshot():
         try:
             async with async_playwright() as pw:
-                browser = await pw.chromium.launch(headless=PW_HEADLESS)
+                browser = await pw.chromium.launch(**_pw_launch_kwargs())
                 context = await browser.new_context(
                     locale=PW_LOCALE, timezone_id=PW_TIMEZONE
                 )

@@ -376,9 +376,12 @@ function buildDetailRows(r, rowIndex) {
   // Согласие
   const consent = r.consent_level || 'не проверено';
   if (formsCount > 0) {
-    if (consent === 'полное')
-      rows.push({ icon: '✓', cat: 'green', text: 'Согласие на обработку ПД оформлено корректно: чекбокс + обязательные реквизиты по 152-ФЗ' });
-    else if (consent === 'частичное')
+    if (consent === 'полное') {
+      let fullMsg = 'Согласие на обработку ПД оформлено корректно: чекбокс + обязательные реквизиты по 152-ФЗ';
+      if (r.requisites_from_docs && Array.isArray(r.consent_docs_checked) && r.consent_docs_checked.length)
+        fullMsg += ` (реквизиты в связанных документах: ${esc(r.consent_docs_checked.map(u => { try { return new URL(u).pathname; } catch(e) { return u; } }).join(', '))})`;
+      rows.push({ icon: '✓', cat: 'green', text: fullMsg });
+    } else if (consent === 'частичное')
       rows.push({ icon: '⚠', cat: 'orange', text: `Согласие частичное: чекбокс есть, но не все реквизиты 152-ФЗ. Отсутствуют: <strong>${esc((r.missing_requisites||[]).join(', ') || '—')}</strong>`, fine: FINES.forms });
     else if (consent === 'отсутствует')
       rows.push({ icon: '✕', cat: 'red', text: 'Согласие на обработку персональных данных отсутствует — нет чекбокса рядом с формой', fine: FINES.forms });
@@ -399,7 +402,12 @@ function buildDetailRows(r, rowIndex) {
   if (screenshotFiles.length > 0) {
     screenshotFiles.forEach(ss => {
       const pageLabel = ss.url ? `<span style="color:var(--c-muted);font-size:.7rem">${esc(ss.url)}</span>` : '';
-      rows.push({ isScreenshot: true, screenshotFile: ss.file, screenshotLabel: pageLabel });
+      rows.push({
+        isScreenshot: true,
+        screenshotFile: ss.file,
+        screenshotLabel: pageLabel,
+        screenshotUrl: ss.url || '',
+      });
     });
   }
 
@@ -410,15 +418,19 @@ function buildDetailRows(r, rowIndex) {
   let idx = 1;
   let html = rows.map(row => {
     if (row.isScreenshot) {
+      const ssSrc = `/screenshots/${row.screenshotFile}`;
+      const ssTitle = row.screenshotUrl || row.screenshotFile || 'Скриншот';
+      // JSON.stringify — безопасные аргументы для inline onclick
       return `
 <div class="screenshot-row">
   <div class="dr-index">${idx++}</div>
   <div class="dr-status">📸</div>
   <div class="ss-label">Скриншот${row.screenshotLabel ? ' — ' + row.screenshotLabel : ' страницы (Playwright)'}</div>
-  <a href="/screenshots/${esc(row.screenshotFile)}" target="_blank" class="open-link-btn">
+  <button type="button" class="open-link-btn"
+          onclick='openScreenshotLightbox(${JSON.stringify(ssSrc)}, ${JSON.stringify(ssTitle)})'>
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
     Открыть
-  </a>
+  </button>
 </div>`;
     }
 
@@ -541,8 +553,87 @@ function showResults(results) {
   if (btns) btns.style.display = 'flex';
 }
 
+/** Скачивание файла: в десктопе — native Save dialog; в браузере — обычный download. */
+function triggerAppDownload(url) {
+  if (!url) return;
+  if (typeof window.__scDesktopDownload === 'function') {
+    window.__scDesktopDownload(url);
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => a.remove(), 800);
+}
+
+/** Просмотр скриншота поверх UI (не уходим со страницы проверки). */
+function openScreenshotLightbox(src, title) {
+  if (!src) return;
+  let box = document.getElementById('ss-lightbox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'ss-lightbox';
+    box.className = 'ss-lightbox';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.innerHTML = `
+      <div class="ss-lightbox-inner">
+        <div class="ss-lightbox-toolbar">
+          <div class="ss-lightbox-title" id="ss-lightbox-title">Скриншот</div>
+          <div class="ss-lightbox-actions">
+            <a class="ss-lightbox-btn" id="ss-lightbox-open-tab" href="#" target="_blank" rel="noopener">В новой вкладке</a>
+            <button type="button" class="ss-lightbox-btn primary" id="ss-lightbox-close">← Назад к проверке</button>
+          </div>
+        </div>
+        <div class="ss-lightbox-img-wrap">
+          <img id="ss-lightbox-img" alt="Скриншот страницы" />
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    box.addEventListener('click', (e) => {
+      if (e.target === box) closeScreenshotLightbox();
+    });
+    document.getElementById('ss-lightbox-close').addEventListener('click', (e) => {
+      e.preventDefault();
+      closeScreenshotLightbox();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && box.classList.contains('open')) {
+        closeScreenshotLightbox();
+      }
+    });
+  }
+  const img = document.getElementById('ss-lightbox-img');
+  const titleEl = document.getElementById('ss-lightbox-title');
+  const tabLink = document.getElementById('ss-lightbox-open-tab');
+  img.src = src;
+  titleEl.textContent = title || 'Скриншот';
+  tabLink.href = src;
+  // В десктопе «новая вкладка» для localhost нежелательна — прячем
+  const isDesktop = !!(window.pywebview || window.__scDesktopHelpers);
+  tabLink.style.display = isDesktop ? 'none' : '';
+  box.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeScreenshotLightbox() {
+  const box = document.getElementById('ss-lightbox');
+  if (!box) return;
+  box.classList.remove('open');
+  document.body.style.overflow = '';
+  const img = document.getElementById('ss-lightbox-img');
+  if (img) img.removeAttribute('src');
+}
+
+// Для desktop inject и внешних вызовов
+window.openScreenshotLightbox = openScreenshotLightbox;
+window.closeScreenshotLightbox = closeScreenshotLightbox;
+
 function downloadReport(fmt) {
-  if (currentJobId) window.location.href = `/download/${currentJobId}/${fmt}`;
+  if (currentJobId) triggerAppDownload(`/download/${currentJobId}/${fmt}`);
 }
 
 function resetForm() {
@@ -660,7 +751,7 @@ function downloadRec(event) {
   event.stopPropagation();
   const dlBtn = event.target.closest('[onclick*="downloadRec"]') || event.target;
   const recId = dlBtn.dataset.recId;
-  if (recId) window.location.href = `/recommend/download/${recId}`;
+  if (recId) triggerAppDownload(`/recommend/download/${recId}`);
 }
 
 /** Сворачивает / разворачивает текстовый блок рекомендаций рядом с «Скачать». */

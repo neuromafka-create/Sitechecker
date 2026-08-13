@@ -237,8 +237,8 @@ function renderTable(rows) {
       '<td>' + riskHtml(r.risk_summary) + '</td>' +
       '<td style="text-align:center;font-weight:600">' + (r.violations_count || 0) + '</td>' +
       '<td onclick="stopRow(event)"><div class="actions">' +
-        '<a class="link-btn" href="/api/history/' + id + '/download/xlsx" title="Excel">xlsx</a>' +
-        '<a class="link-btn" href="/api/history/' + id + '/download/csv" title="CSV">csv</a>' +
+        '<a class="link-btn" href="/api/history/' + id + '/download/xlsx" download title="Excel">xlsx</a>' +
+        '<a class="link-btn" href="/api/history/' + id + '/download/csv" download title="CSV">csv</a>' +
         '<button type="button" class="icon-btn danger" onclick="deleteScan(' + id + ', event)" title="Удалить">✕</button>' +
       '</div></td>' +
     '</tr>';
@@ -258,8 +258,8 @@ function showDetail(id) {
 
       let toolbar =
         '<div class="detail-toolbar">' +
-          '<a class="link-btn" href="/api/history/' + id + '/download/xlsx">↓ Excel</a>' +
-          '<a class="link-btn" href="/api/history/' + id + '/download/csv">↓ CSV</a>' +
+          '<a class="link-btn" href="/api/history/' + id + '/download/xlsx" download>↓ Excel</a>' +
+          '<a class="link-btn" href="/api/history/' + id + '/download/csv" download>↓ CSV</a>' +
           '<button type="button" class="icon-btn danger" onclick="deleteScan(' + id + ', event, true)">Удалить запись</button>' +
         '</div>';
 
@@ -279,7 +279,7 @@ function showDetail(id) {
         if (list.length) {
           docsHtml = '<div class="site-docs">' + list.map(({doc, idx}) => {
             const label = doc.label || doc.doc_type || 'Документ';
-            return '<a class="link-btn" href="/api/history/' + id + '/doc/' + idx + '">↓ ' + esc(label) + '</a>';
+            return '<a class="link-btn" href="/api/history/' + id + '/doc/' + idx + '" download>↓ ' + esc(label) + '</a>';
           }).join('') + '</div>';
         }
 

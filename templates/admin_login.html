@@ -181,8 +181,13 @@
 
   <div class="login-card" id="loginCard">
     <div class="login-eyebrow">Административный доступ</div>
+    {% if needs_setup %}
+    <div class="login-title">Создайте пароль</div>
+    <div class="login-sub">Первый вход: задайте пароль администратора. Он хранится только на этом компьютере (хеш в настройках приложения).</div>
+    {% else %}
     <div class="login-title">Вход в панель</div>
     <div class="login-sub">Только для администраторов системы</div>
+    {% endif %}
 
     {% if error %}
     <div class="error-msg">
@@ -193,12 +198,43 @@
     </div>
     {% endif %}
 
+    {% if needs_setup %}
     <form method="POST" action="/admin/login" onsubmit="handleSubmit(event)">
+      <input type="hidden" name="action" value="setup">
+      <div class="field-group">
+        <label class="field-label" for="password">Новый пароль</label>
+        <div class="pw-row">
+          <input class="field-input" type="password" id="password" name="password"
+                 placeholder="Минимум 6 символов" autofocus autocomplete="new-password" minlength="6" required>
+          <button type="button" class="pw-toggle" onclick="togglePw()" title="Показать/скрыть пароль">
+            <svg id="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="password2">Повторите пароль</label>
+        <input class="field-input" type="password" id="password2" name="password2"
+               placeholder="Ещё раз" autocomplete="new-password" minlength="6" required>
+      </div>
+      <button type="submit" class="btn btn-login">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 2L3 7v5c0 5 3.9 9.5 9 11 5.1-1.5 9-6 9-11V7z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        Сохранить и войти
+      </button>
+    </form>
+    {% else %}
+    <form method="POST" action="/admin/login" onsubmit="handleSubmit(event)">
+      <input type="hidden" name="action" value="login">
       <div class="field-group">
         <label class="field-label" for="password">Пароль</label>
         <div class="pw-row">
           <input class="field-input" type="password" id="password" name="password"
-                 placeholder="Введите пароль" autofocus autocomplete="current-password">
+                 placeholder="Введите пароль" autofocus autocomplete="current-password" required>
           <button type="button" class="pw-toggle" onclick="togglePw()" title="Показать/скрыть пароль">
             <svg id="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -216,6 +252,7 @@
         Войти
       </button>
     </form>
+    {% endif %}
   </div>
 
   <div class="login-footer">

@@ -1259,7 +1259,19 @@ function showStats(results) {
 }
 
 function exportXlsx() {
-  if (_jobId) window.location.href = `/sanctions/export/${_jobId}`;
+  if (!_jobId) return;
+  var url = '/sanctions/export/' + _jobId;
+  if (typeof window.__scDesktopDownload === 'function') {
+    window.__scDesktopDownload(url);
+    return;
+  }
+  var a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ a.remove(); }, 800);
 }
 
 function resetScan() {
@@ -1431,7 +1443,22 @@ function stopAiStream() {
 
 function downloadAiRec(domain) {
   if (!_aiRecId) return;
-  window.open('/sanctions/recommend/download/' + _aiRecId, '_blank');
+  var url = '/sanctions/recommend/download/' + _aiRecId;
+  if (typeof window.__scDesktopDownload === 'function') {
+    window.__scDesktopDownload(url);
+    return;
+  }
+  if (typeof triggerAppDownload === 'function') {
+    triggerAppDownload(url);
+    return;
+  }
+  var a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ a.remove(); }, 800);
 }
 
 function renderMarkdown(text) {
